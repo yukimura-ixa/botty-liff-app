@@ -3,19 +3,55 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/shared/BottomNav';
 import { theme as t, getRank } from '@/lib/theme';
-import { getMe, type StudentProfile } from '@/lib/api';
+import { getMe, ApiError, type StudentProfile } from '@/lib/api';
+
+type Status = 'loading' | 'ok' | 'error';
 
 export default function ProfilePage() {
   const router  = useRouter();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [status, setStatus] = useState<Status>('loading');
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    getMe().then(setProfile).catch(console.error);
-  }, []);
+  function load() {
+    setStatus('loading');
+    setError('');
+    getMe()
+      .then(p => { setProfile(p); setStatus('ok'); })
+      .catch((e: unknown) => {
+        if (e instanceof ApiError && e.status === 404) {
+          router.replace('/onboard');
+          return;
+        }
+        setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ');
+        setStatus('error');
+      });
+  }
 
-  function handleLogout() {
+  useEffect(() => { load(); }, []);
+
+  async function handleLogout() {
+    const { auth } = await import('@/lib/firebase');
+    await auth.signOut().catch(() => {});
     sessionStorage.clear();
     router.replace('/');
+  }
+
+  if (status === 'error') {
+    return (
+      <main style={{
+        minHeight: '100dvh', background: t.bone,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
+      }}>
+        <div style={{ fontSize: 48 }}>⚠️</div>
+        <div style={{ fontSize: 14, color: t.coral, textAlign: 'center', maxWidth: 320 }}>{error}</div>
+        <button onClick={load} style={{
+          background: t.moss, color: 'white', border: 'none',
+          padding: '12px 28px', borderRadius: 12, fontSize: 14, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>ลองใหม่</button>
+      </main>
+    );
   }
 
   const rank = getRank(profile?.totalPoints ?? 0);

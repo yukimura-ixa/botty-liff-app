@@ -11,13 +11,18 @@ export default function OnboardPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [nickname, setNick]     = useState('');
-  const [grade, setGrade]       = useState('5');
-  const [room, setRoom]         = useState('2');
+  const [grade, setGrade]       = useState('');
+  const [room, setRoom]         = useState('');
   const [consent, setConsent]   = useState(false);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
-  const ready = fullName.trim() && nickname.trim() && consent;
+  const ready =
+    fullName.trim() &&
+    nickname.trim() &&
+    grade !== '' &&
+    room !== '' &&
+    consent;
 
   async function handleSubmit() {
     if (!ready) return;

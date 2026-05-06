@@ -16,11 +16,17 @@ export default function LeaderboardPage() {
   const [scope,  setScope]  = useState<Scope>('class');
   const [period, setPeriod] = useState<Period>('week');
   const [data, setData]     = useState<LeaderboardResponse | null>(null);
+  const [error, setError]   = useState('');
 
-  useEffect(() => {
+  function load(s: Scope, p: Period) {
     setData(null);
-    getLeaderboard(scope, period).then(setData).catch(console.error);
-  }, [scope, period]);
+    setError('');
+    getLeaderboard(s, p)
+      .then(setData)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ'));
+  }
+
+  useEffect(() => { load(scope, period); }, [scope, period]);
 
   const top3 = data?.entries.slice(0, 3) ?? [];
   const rest  = data?.entries.slice(3) ?? [];
@@ -62,7 +68,16 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {!data ? (
+      {error ? (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <div style={{ color: t.coral, fontSize: 13, marginBottom: 12 }}>{error}</div>
+          <button onClick={() => load(scope, period)} style={{
+            background: t.moss, color: 'white', border: 'none',
+            padding: '10px 24px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>ลองใหม่</button>
+        </div>
+      ) : !data ? (
         <div style={{ textAlign: 'center', color: t.muted, padding: 40 }}>กำลังโหลด...</div>
       ) : (
         <>

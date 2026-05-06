@@ -1,18 +1,45 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/shared/BottomNav';
 import BottleProgress from '@/components/botty/BottleProgress';
 import { theme as t, getRank, getNextRank, RANKS } from '@/lib/theme';
-import { getMe, getSchoolGoal, type StudentProfile, type SchoolGoal } from '@/lib/api';
+import { getMe, getSchoolGoal, ApiError, type StudentProfile, type SchoolGoal } from '@/lib/api';
 
 export default function HomePage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [goal, setGoal]       = useState<SchoolGoal | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
+
+  function load() {
+    setLoading(true);
+    setError('');
+    Promise.all([
+      getMe().catch((e: unknown) => {
+        if (e instanceof ApiError && e.status === 404) {
+          router.replace('/onboard');
+          return null;
+        }
+        throw e;
+      }),
+      getSchoolGoal().catch(() => null),
+    ])
+      .then(([p, g]) => {
+        if (p) setProfile(p);
+        setGoal(g);
+        setLoading(false);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ');
+        setLoading(false);
+      });
+  }
 
   useEffect(() => {
-    getMe().then(setProfile).catch(console.error);
-    getSchoolGoal().then(setGoal).catch(console.error);
+    load();
   }, []);
 
   const pts    = profile?.totalPoints ?? 0;
@@ -23,6 +50,23 @@ export default function HomePage() {
   const pct    = Math.min(100, (pts - curDef.min) / (curDef.max - curDef.min) * 100);
   const goalPct = goal ? Math.min(100, goal.currentBottles / goal.targetBottles * 100) : 0;
   const firstName = profile?.fullName.split(' ')[0] ?? '...';
+
+  if (error) {
+    return (
+      <main style={{
+        minHeight: '100dvh', background: t.bone,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
+      }}>
+        <div style={{ fontSize: 48 }}>⚠️</div>
+        <div style={{ fontSize: 14, color: t.coral, textAlign: 'center', maxWidth: 320 }}>{error}</div>
+        <button onClick={load} style={{
+          background: t.moss, color: 'white', border: 'none',
+          padding: '12px 28px', borderRadius: 12, fontSize: 14, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>ลองใหม่</button>
+      </main>
+    );
+  }
 
   return (
     <main style={{ minHeight: '100dvh', background: t.bone, paddingBottom: 120 }}>
@@ -90,16 +134,23 @@ export default function HomePage() {
       </div>
 
       {/* School goal */}
-      <section style={{ margin: '20px 18px 0' }}>
-        <SectionHeader title="เป้าหมายของโรงเรียน" right={goal ? `${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}` : '—'} />
-        <div style={{ background: 'white', borderRadius: 18, padding: 16, border: `1px solid ${t.mint}`, marginTop: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: t.muted, marginBottom: 10 }}>
-            <span>🎯 รีไซเคิล {goal?.targetBottles.toLocaleString() ?? '20,000'} ขวด ภายในปีการศึกษานี้</span>
-            <span style={{ fontWeight: 700, color: t.moss }}>{Math.round(goalPct)}%</span>
+      {goal && (
+        <section style={{ margin: '20px 18px 0' }}>
+          <SectionHeader title="เป้าหมายของโรงเรียน" right={`${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}`} />
+          <div style={{ background: 'white', borderRadius: 18, padding: 16, border: `1px solid ${t.mint}`, marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: t.muted, marginBottom: 10 }}>
+              <span>🎯 รีไซเคิล {goal.targetBottles.toLocaleString()} ขวด ภายในปีการศึกษานี้</span>
+              <span style={{ fontWeight: 700, color: t.moss }}>{Math.round(goalPct)}%</span>
+            </div>
+            <BottleProgress pct={goalPct} label={`${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}`} height={32} />
           </div>
-          <BottleProgress pct={goalPct} label={goal ? `${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}` : ''} height={32} />
-        </div>
-      </section>
+        </section>
+      )}
+      {loading && !goal && (
+        <section style={{ margin: '20px 18px 0' }}>
+          <div style={{ background: t.mint, opacity: 0.4, borderRadius: 18, height: 90 }} />
+        </section>
+      )}
 
       {/* Quick actions */}
       <section style={{ margin: '20px 18px 0' }}>

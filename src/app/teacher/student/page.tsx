@@ -13,10 +13,17 @@ function TeacherProfileContent() {
   const uid    = params.get('uid') ?? '';
   const [student, setStudent] = useState<StudentWithSeries | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (uid) getStudent(uid).then(setStudent).catch(console.error);
-  }, [uid]);
+  function load() {
+    if (!uid) return;
+    setError('');
+    getStudent(uid)
+      .then(setStudent)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'โหลดข้อมูลนักเรียนไม่สำเร็จ'));
+  }
+
+  useEffect(() => { load(); }, [uid]);
 
   async function handleExport() {
     if (!student) return;
@@ -59,6 +66,16 @@ function TeacherProfileContent() {
               ))}
             </div>
           </>
+        ) : error ? (
+          <div style={{ textAlign: 'center', padding: 12 }}>
+            <div style={{ color: t.coral, fontSize: 13, marginBottom: 10 }}>{error}</div>
+            <button onClick={load} style={{
+              background: 'rgba(255,255,255,0.18)', color: 'white',
+              border: '1px solid rgba(255,255,255,0.3)',
+              padding: '8px 20px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>ลองใหม่</button>
+          </div>
         ) : <div style={{ opacity: 0.6, fontSize: 13 }}>กำลังโหลด...</div>}
       </div>
 

@@ -10,13 +10,21 @@ export default function TeacherDashPage() {
   const [q, setQ]             = useState('');
   const [classKey, setClassKey] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [error, setError]       = useState('');
+  const [studentsLoading, setStudentsLoading] = useState(false);
 
   useEffect(() => {
-    getTeacherKPIs().then(setKpis).catch(console.error);
+    getTeacherKPIs()
+      .then(setKpis)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'โหลด KPI ไม่สำเร็จ'));
   }, []);
 
   useEffect(() => {
-    getStudents({ q, classKey }).then(r => setStudents(r.students)).catch(console.error);
+    setStudentsLoading(true);
+    getStudents({ q, classKey })
+      .then(r => setStudents(r.students ?? []))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'โหลดรายชื่อไม่สำเร็จ'))
+      .finally(() => setStudentsLoading(false));
   }, [q, classKey]);
 
   async function handleExport() {
@@ -116,6 +124,15 @@ export default function TeacherDashPage() {
           <div style={{ textAlign: 'right' }}>ขวด</div>
           <div/>
         </div>
+        {studentsLoading && students.length === 0 && (
+          <div style={{ padding: 24, textAlign: 'center', color: t.muted, fontSize: 13 }}>กำลังโหลด...</div>
+        )}
+        {!studentsLoading && students.length === 0 && (
+          <div style={{ padding: 24, textAlign: 'center', color: t.muted, fontSize: 13 }}>ไม่พบนักเรียน</div>
+        )}
+        {error && (
+          <div style={{ padding: 16, textAlign: 'center', color: t.coral, fontSize: 12 }}>{error}</div>
+        )}
         {students.map((s, i) => (
           <Link key={s.uid} href={`/teacher/student?uid=${s.uid}`} style={{ textDecoration: 'none' }}>
             <div style={{

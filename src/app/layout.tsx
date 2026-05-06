@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import AuthSync from '@/components/shared/AuthSync';
 import { IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
 
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="th" className={ibmPlexSansThai.variable}>
       <body style={{ fontFamily: 'var(--font-ibm-plex-thai), system-ui, sans-serif', background: '#FAF7EE', minHeight: '100dvh' }}>
+        <AuthSync />
         {children}
       </body>
     </html>
