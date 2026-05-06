@@ -37,7 +37,9 @@ export default function LoginPage() {
 
         if (!cancelled) setPhase("authenticating");
 
-        const idToken = await getLineIdToken();
+        // Get fresh token immediately before auth to avoid expiry
+        const idToken = liff.getIDToken();
+        if (!idToken) throw new Error("No LINE id_token — user not logged in");
         const { customToken, role, onboarded } = await authLine(idToken);
         const cred = await signInWithCustomToken(auth, customToken);
         const firebaseIdToken = await cred.user.getIdToken();
