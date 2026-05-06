@@ -38,6 +38,8 @@ export default function LoginPage() {
           return;
         }
 
+        // Line login succeeded; continue with auth flow
+
         if (!cancelled) setPhase('authenticating');
 
         const idToken = await getLineIdToken();
