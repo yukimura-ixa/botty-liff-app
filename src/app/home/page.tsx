@@ -1,26 +1,32 @@
-'use client';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import BottomNav from '@/components/shared/BottomNav';
-import BottleProgress from '@/components/botty/BottleProgress';
-import { theme as t, getRank, getNextRank, RANKS } from '@/lib/theme';
-import { getMe, getSchoolGoal, ApiError, type StudentProfile, type SchoolGoal } from '@/lib/api';
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import BottomNav from "@/components/shared/BottomNav";
+import BottleProgress from "@/components/botty/BottleProgress";
+import { theme as t, getRank, getNextRank, RANKS } from "@/lib/theme";
+import {
+  getMe,
+  getSchoolGoal,
+  ApiError,
+  type StudentProfile,
+  type SchoolGoal,
+} from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [goal, setGoal]       = useState<SchoolGoal | null>(null);
+  const [goal, setGoal] = useState<SchoolGoal | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [error, setError] = useState("");
 
   function load() {
     setLoading(true);
-    setError('');
+    setError("");
     Promise.all([
       getMe().catch((e: unknown) => {
         if (e instanceof ApiError && e.status === 404) {
-          router.replace('/onboard');
+          router.replace("/onboard");
           return null;
         }
         throw e;
@@ -33,7 +39,7 @@ export default function HomePage() {
         setLoading(false);
       })
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ');
+        setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
         setLoading(false);
       });
   }
@@ -42,60 +48,137 @@ export default function HomePage() {
     load();
   }, []);
 
-  const pts    = profile?.totalPoints ?? 0;
-  const cur    = getRank(pts);
-  const next   = getNextRank(pts);
-  const curDef = RANKS.find(r => r.k === cur.k) ?? RANKS[0];
-  const nextDef= RANKS.find(r => r.k === next.k) ?? RANKS[RANKS.length - 1];
-  const pct    = Math.min(100, (pts - curDef.min) / (curDef.max - curDef.min) * 100);
-  const goalPct = goal ? Math.min(100, goal.currentBottles / goal.targetBottles * 100) : 0;
-  const firstName = profile?.fullName.split(' ')[0] ?? '...';
+  const pts = profile?.totalPoints ?? 0;
+  const cur = getRank(pts);
+  const next = getNextRank(pts);
+  const curDef = RANKS.find((r) => r.k === cur.k) ?? RANKS[0];
+  const nextDef = RANKS.find((r) => r.k === next.k) ?? RANKS[RANKS.length - 1];
+  const pct = Math.min(
+    100,
+    ((pts - curDef.min) / (curDef.max - curDef.min)) * 100,
+  );
+  const goalPct = goal
+    ? Math.min(100, (goal.currentBottles / goal.targetBottles) * 100)
+    : 0;
+  const firstName = profile?.fullName?.split(" ")[0] ?? "...";
 
   if (error) {
     return (
-      <main style={{
-        minHeight: '100dvh', background: t.bone,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24,
-      }}>
+      <main
+        style={{
+          minHeight: "100dvh",
+          background: t.bone,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          padding: 24,
+        }}
+      >
         <div style={{ fontSize: 48 }}>⚠️</div>
-        <div style={{ fontSize: 14, color: t.coral, textAlign: 'center', maxWidth: 320 }}>{error}</div>
-        <button onClick={load} style={{
-          background: t.moss, color: 'white', border: 'none',
-          padding: '12px 28px', borderRadius: 12, fontSize: 14, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}>ลองใหม่</button>
+        <div
+          style={{
+            fontSize: 14,
+            color: t.coral,
+            textAlign: "center",
+            maxWidth: 320,
+          }}
+        >
+          {error}
+        </div>
+        <button
+          onClick={load}
+          style={{
+            background: t.moss,
+            color: "white",
+            border: "none",
+            padding: "12px 28px",
+            borderRadius: 12,
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          ลองใหม่
+        </button>
       </main>
     );
   }
 
   return (
-    <main style={{ minHeight: '100dvh', background: t.bone, paddingBottom: 120 }}>
+    <main
+      style={{ minHeight: "100dvh", background: t.bone, paddingBottom: 120 }}
+    >
       {/* Hero */}
-      <div style={{
-        position: 'relative', overflow: 'hidden',
-        background: `linear-gradient(160deg, ${t.forest} 0%, ${t.moss} 100%)`,
-        padding: '56px 22px 84px', color: 'white',
-        borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          background: `linear-gradient(160deg, ${t.forest} 0%, ${t.moss} 100%)`,
+          padding: "56px 22px 84px",
+          color: "white",
+          borderBottomLeftRadius: 32,
+          borderBottomRightRadius: 32,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>สวัสดีตอนเช้า,</div>
             <div style={{ fontSize: 19, fontWeight: 700 }}>{firstName} 👋</div>
           </div>
-          <div style={{
-            padding: '6px 14px', borderRadius: 999,
-            background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.2)',
-            fontSize: 12, fontWeight: 700,
-          }}>
+          <div
+            style={{
+              padding: "6px 14px",
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.16)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
             🔥 {profile?.streakDays ?? 0} วันติด
           </div>
         </div>
 
         <div style={{ marginTop: 20 }}>
-          <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: 1.5, fontWeight: 600 }}>คะแนนรวม</div>
-          <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: -2, lineHeight: 1, marginTop: 2 }}>
+          <div
+            style={{
+              fontSize: 11,
+              opacity: 0.7,
+              letterSpacing: 1.5,
+              fontWeight: 600,
+            }}
+          >
+            คะแนนรวม
+          </div>
+          <div
+            style={{
+              fontSize: 64,
+              fontWeight: 800,
+              letterSpacing: -2,
+              lineHeight: 1,
+              marginTop: 2,
+            }}
+          >
             {pts.toLocaleString()}
-            <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.7, marginLeft: 6 }}>pts</span>
+            <span
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                opacity: 0.7,
+                marginLeft: 6,
+              }}
+            >
+              pts
+            </span>
           </div>
           <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
             {profile?.totalScans ?? 0} ขวด ตลอดกาล
@@ -104,66 +187,170 @@ export default function HomePage() {
       </div>
 
       {/* Rank card */}
-      <div style={{
-        margin: '-64px 18px 0', position: 'relative', zIndex: 3,
-        background: 'white', borderRadius: 22, padding: 18,
-        boxShadow: '0 12px 40px rgba(15,61,46,0.14)',
-        border: `1px solid ${t.mint}`,
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div
+        style={{
+          margin: "-64px 18px 0",
+          position: "relative",
+          zIndex: 3,
+          background: "white",
+          borderRadius: 22,
+          padding: 18,
+          boxShadow: "0 12px 40px rgba(15,61,46,0.14)",
+          border: `1px solid ${t.mint}`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
           <div>
-            <div style={{ fontSize: 11, color: t.muted, letterSpacing: 1, fontWeight: 700 }}>ระดับปัจจุบัน</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <div
+              style={{
+                fontSize: 11,
+                color: t.muted,
+                letterSpacing: 1,
+                fontWeight: 700,
+              }}
+            >
+              ระดับปัจจุบัน
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 4,
+              }}
+            >
               <span style={{ fontSize: 28 }}>{curDef.emoji}</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: t.forest }}>{curDef.k}</span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: t.forest }}>
+                {curDef.k}
+              </span>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>เป้าถัดไป</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: t.moss }}>{nextDef.emoji} {nextDef.k}</div>
-            <div style={{ fontSize: 11, color: t.muted, marginTop: 1 }}>อีก {Math.max(0, nextDef.min - pts).toLocaleString()} pts</div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>
+              เป้าถัดไป
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: t.moss }}>
+              {nextDef.emoji} {nextDef.k}
+            </div>
+            <div style={{ fontSize: 11, color: t.muted, marginTop: 1 }}>
+              อีก {Math.max(0, nextDef.min - pts).toLocaleString()} pts
+            </div>
           </div>
         </div>
-        <div style={{ marginTop: 14, height: 10, borderRadius: 5, background: t.mint, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', width: `${pct}%`,
-            background: `linear-gradient(90deg, ${t.leaf}, ${t.moss})`,
+        <div
+          style={{
+            marginTop: 14,
+            height: 10,
             borderRadius: 5,
-          }} />
+            background: t.mint,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${pct}%`,
+              background: `linear-gradient(90deg, ${t.leaf}, ${t.moss})`,
+              borderRadius: 5,
+            }}
+          />
         </div>
       </div>
 
       {/* School goal */}
       {goal && (
-        <section style={{ margin: '20px 18px 0' }}>
-          <SectionHeader title="เป้าหมายของโรงเรียน" right={`${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}`} />
-          <div style={{ background: 'white', borderRadius: 18, padding: 16, border: `1px solid ${t.mint}`, marginTop: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: t.muted, marginBottom: 10 }}>
-              <span>🎯 รีไซเคิล {goal.targetBottles.toLocaleString()} ขวด ภายในปีการศึกษานี้</span>
-              <span style={{ fontWeight: 700, color: t.moss }}>{Math.round(goalPct)}%</span>
+        <section style={{ margin: "20px 18px 0" }}>
+          <SectionHeader
+            title="เป้าหมายของโรงเรียน"
+            right={`${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}`}
+          />
+          <div
+            style={{
+              background: "white",
+              borderRadius: 18,
+              padding: 16,
+              border: `1px solid ${t.mint}`,
+              marginTop: 8,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 12,
+                color: t.muted,
+                marginBottom: 10,
+              }}
+            >
+              <span>
+                🎯 รีไซเคิล {goal.targetBottles.toLocaleString()} ขวด
+                ภายในปีการศึกษานี้
+              </span>
+              <span style={{ fontWeight: 700, color: t.moss }}>
+                {Math.round(goalPct)}%
+              </span>
             </div>
-            <BottleProgress pct={goalPct} label={`${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}`} height={32} />
+            <BottleProgress
+              pct={goalPct}
+              label={`${goal.currentBottles.toLocaleString()} / ${goal.targetBottles.toLocaleString()}`}
+              height={32}
+            />
           </div>
         </section>
       )}
       {loading && !goal && (
-        <section style={{ margin: '20px 18px 0' }}>
-          <div style={{ background: t.mint, opacity: 0.4, borderRadius: 18, height: 90 }} />
+        <section style={{ margin: "20px 18px 0" }}>
+          <div
+            style={{
+              background: t.mint,
+              opacity: 0.4,
+              borderRadius: 18,
+              height: 90,
+            }}
+          />
         </section>
       )}
 
       {/* Quick actions */}
-      <section style={{ margin: '20px 18px 0' }}>
+      <section style={{ margin: "20px 18px 0" }}>
         <SectionHeader title="ทางลัด" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            marginTop: 8,
+          }}
+        >
           {[
-            { href: '/scan',        emoji: '📸', label: 'สแกนขวด', bg: t.moss },
-            { href: '/leaderboard', emoji: '🏆', label: 'กระดานอันดับ', bg: t.forest },
+            { href: "/scan", emoji: "📸", label: "สแกนขวด", bg: t.moss },
+            {
+              href: "/leaderboard",
+              emoji: "🏆",
+              label: "กระดานอันดับ",
+              bg: t.forest,
+            },
           ].map(({ href, emoji, label, bg }) => (
-            <Link key={href} href={href} style={{
-              background: bg, color: 'white', borderRadius: 16, padding: '16px',
-              display: 'flex', flexDirection: 'column', gap: 6, textDecoration: 'none',
-            }}>
+            <Link
+              key={href}
+              href={href}
+              style={{
+                background: bg,
+                color: "white",
+                borderRadius: 16,
+                padding: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                textDecoration: "none",
+              }}
+            >
               <span style={{ fontSize: 28 }}>{emoji}</span>
               <span style={{ fontSize: 13, fontWeight: 700 }}>{label}</span>
             </Link>
@@ -176,9 +363,21 @@ export default function HomePage() {
 
 function SectionHeader({ title, right }: { title: string; right?: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: t.forest }}>{title}</div>
-      {right && <div style={{ fontSize: 12, color: t.muted, fontWeight: 600 }}>{right}</div>}
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+      }}
+    >
+      <div style={{ fontSize: 14, fontWeight: 700, color: t.forest }}>
+        {title}
+      </div>
+      {right && (
+        <div style={{ fontSize: 12, color: t.muted, fontWeight: 600 }}>
+          {right}
+        </div>
+      )}
     </div>
   );
 }
