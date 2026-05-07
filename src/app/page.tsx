@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Botty from "@/components/botty/Botty";
 import { theme as t } from "@/lib/theme";
 import { initLiff, getLineIdToken } from "@/lib/liff";
-import { authLine } from "@/lib/api";
+import { authLine, ApiError } from "@/lib/api";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -37,10 +37,42 @@ export default function LoginPage() {
 
         if (!cancelled) setPhase("authenticating");
 
-        // Get fresh token immediately before auth to avoid expiry
-        const idToken = liff.getIDToken();
-        if (!idToken) throw new Error("No LINE id_token — user not logged in");
-        const { customToken, role, onboarded } = await authLine(idToken);
+        // Try to authenticate with optional retry on expired LINE token
+        let retried = false;
+
+        async function tryAuth() {
+          const idToken = await getLineIdToken();
+          try {
+            const result = await authLine(idToken);
+            return result;
+          } catch (authErr) {
+            // If auth failed due to expired LINE token and we haven't retried yet, retry once
+            if (
+              !retried &&
+              authErr instanceof ApiError &&
+              authErr.message.includes("invalid LINE token")
+            ) {
+              retried = true;
+              // Clear app session state
+              sessionStorage.removeItem("firebaseIdToken");
+              sessionStorage.removeItem("role");
+              // Force fresh LIFF login
+              await liff.logout();
+              await liff.login({ redirectUri: window.location.href });
+              // Return and let the page reload trigger a new auth attempt
+              return null;
+            }
+            throw authErr;
+          }
+        }
+
+        const authResult = await tryAuth();
+        if (!authResult) {
+          // Retry triggered; page reload should handle the next attempt
+          return;
+        }
+
+        const { customToken, role, onboarded } = authResult;
         const cred = await signInWithCustomToken(auth, customToken);
         const firebaseIdToken = await cred.user.getIdToken();
 
