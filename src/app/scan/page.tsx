@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
 import { uploadScan, type ScanResult } from "@/lib/api";
@@ -14,6 +14,13 @@ export default function ScanPage() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState("");
 
+  // Set srcObject after video element mounts (stream state change triggers re-render first)
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
   const startCamera = useCallback(async () => {
     try {
       const s = await navigator.mediaDevices.getUserMedia({
@@ -25,7 +32,6 @@ export default function ScanPage() {
         audio: false,
       });
       setStream(s);
-      if (videoRef.current) videoRef.current.srcObject = s;
       setState("scanning");
     } catch {
       setError("ไม่สามารถเข้าถึงกล้องได้ กรุณาให้สิทธิ์การใช้กล้อง");
