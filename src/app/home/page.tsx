@@ -57,7 +57,7 @@ export default function HomePage() {
     100,
     ((pts - curDef.min) / (curDef.max - curDef.min)) * 100,
   );
-  const goalPct = goal
+  const goalPct = goal && goal.targetBottles > 0
     ? Math.min(100, (goal.currentBottles / goal.targetBottles) * 100)
     : 0;
   const firstName = profile?.fullName?.split(" ")[0] ?? "...";
@@ -264,7 +264,7 @@ export default function HomePage() {
       </div>
 
       {/* School goal */}
-      {goal && (
+      {goal && goal.targetBottles > 0 && (
         <section style={{ margin: "20px 18px 0" }}>
           <SectionHeader
             title="เป้าหมายของโรงเรียน"
