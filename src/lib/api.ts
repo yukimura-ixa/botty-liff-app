@@ -109,12 +109,12 @@ export function getMyScans(limit = 20, cursor?: string) {
 
 export interface LeaderboardEntry {
   uid: string; fullName: string; nickname: string; classKey: string
-  rank: string; points: number; scans: number
+  rank: string; points: number; scans: number; streakDays: number
 }
 export interface LeaderboardResponse {
   entries: LeaderboardEntry[]
   myRank: number
-  myEntry?: LeaderboardEntry
+  myEntry: LeaderboardEntry | null
 }
 
 export function getLeaderboard(scope: 'class' | 'grade' | 'school', period: 'week' | 'month' | 'all') {

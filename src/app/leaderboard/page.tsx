@@ -28,8 +28,8 @@ export default function LeaderboardPage() {
 
   useEffect(() => { load(scope, period); }, [scope, period]);
 
-  const top3 = data?.entries.slice(0, 3) ?? [];
-  const rest  = data?.entries.slice(3) ?? [];
+  const top3 = (data?.entries ?? []).slice(0, 3);
+  const rest  = (data?.entries ?? []).slice(3);
 
   return (
     <main style={{ minHeight: '100dvh', background: t.bone, paddingBottom: 110 }}>
@@ -79,6 +79,10 @@ export default function LeaderboardPage() {
         </div>
       ) : !data ? (
         <div style={{ textAlign: 'center', color: t.muted, padding: 40 }}>กำลังโหลด...</div>
+      ) : data.entries.length === 0 ? (
+        <div style={{ textAlign: 'center', color: t.muted, padding: 60, fontSize: 14 }}>
+          ยังไม่มีข้อมูล
+        </div>
       ) : (
         <>
           {/* Podium */}
