@@ -77,7 +77,7 @@ export default function ScanPage() {
         <div style={{ fontSize: 18, fontWeight: 700, textAlign: "center" }}>
           สแกนขวด PET
         </div>
-        <div
+        {/* <div
           style={{
             fontSize: 13,
             opacity: 0.6,
@@ -87,7 +87,7 @@ export default function ScanPage() {
           }}
         >
           ใช้กล้องเท่านั้น · ระบบจะตรวจสอบว่าเป็นขวด PET จริง
-        </div>
+        </div> */}
         <button
           onClick={startCamera}
           style={{
@@ -450,7 +450,7 @@ export default function ScanPage() {
         </button>
       </div>
 
-      <div
+      {/* <div
         style={{
           position: "absolute",
           left: 16,
@@ -462,7 +462,7 @@ export default function ScanPage() {
         }}
       >
         🔒 ใช้ได้เฉพาะกล้องเท่านั้น · ป้องกันการอัปโหลดรูปขวด
-      </div>
+      </div> */}
     </main>
   );
 }
