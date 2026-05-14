@@ -49,6 +49,23 @@ export default function HomePage() {
   }, []);
 
   const pts = profile?.totalPoints ?? 0;
+  const [displayPts, setDisplayPts] = useState(0);
+
+  useEffect(() => {
+    if (pts === 0) { setDisplayPts(0); return; }
+    const duration = 900;
+    const start = performance.now();
+    let raf: number;
+    function tick(now: number) {
+      const p = Math.min(1, (now - start) / duration);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setDisplayPts(Math.round(ease * pts));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [pts]);
+
   const cur = getRank(pts);
   const next = getNextRank(pts);
   const curDef = RANKS.find((r) => r.k === cur.k) ?? RANKS[0];
@@ -60,7 +77,14 @@ export default function HomePage() {
   const goalPct = goal && goal.targetBottles > 0
     ? Math.min(100, (goal.currentBottles / goal.targetBottles) * 100)
     : 0;
-  const firstName = profile?.fullName?.split(" ")[0] ?? "...";
+  const firstName = profile?.fullName?.split(" ")[0] ?? null;
+
+  function getGreeting() {
+    const h = new Date().getHours();
+    if (h < 12) return "สวัสดีตอนเช้า";
+    if (h < 17) return "สวัสดีตอนบ่าย";
+    return "สวัสดีตอนเย็น";
+  }
 
   if (error) {
     return (
@@ -131,21 +155,27 @@ export default function HomePage() {
           }}
         >
           <div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>สวัสดีตอนเช้า,</div>
-            <div style={{ fontSize: 19, fontWeight: 700 }}>{firstName} 👋</div>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>{getGreeting()},</div>
+            {loading ? (
+              <div style={{ width: 120, height: 22, borderRadius: 6, background: "rgba(255,255,255,0.2)", marginTop: 4 }} />
+            ) : (
+              <div style={{ fontSize: 19, fontWeight: 700 }}>{firstName} 👋</div>
+            )}
           </div>
-          <div
-            style={{
-              padding: "6px 14px",
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.16)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            🔥 {profile?.streakDays ?? 0} วันติด
-          </div>
+          {!loading && (profile?.streakDays ?? 0) > 0 && (
+            <div
+              style={{
+                padding: "6px 14px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.16)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              🔥 {profile!.streakDays} วันติด
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: 20 }}>
@@ -159,29 +189,35 @@ export default function HomePage() {
           >
             คะแนนรวม
           </div>
-          <div
-            style={{
-              fontSize: 64,
-              fontWeight: 800,
-              letterSpacing: -2,
-              lineHeight: 1,
-              marginTop: 2,
-            }}
-          >
-            {pts.toLocaleString()}
-            <span
+          {loading ? (
+            <div style={{ width: 180, height: 64, borderRadius: 8, background: "rgba(255,255,255,0.2)", marginTop: 4 }} />
+          ) : (
+            <div
               style={{
-                fontSize: 18,
-                fontWeight: 600,
-                opacity: 0.7,
-                marginLeft: 6,
+                fontSize: 64,
+                fontWeight: 800,
+                letterSpacing: -2,
+                lineHeight: 1,
+                marginTop: 2,
+                fontFamily: "var(--font-kanit), inherit",
               }}
             >
-              pts
-            </span>
-          </div>
+              {displayPts.toLocaleString()}
+              <span
+                style={{
+                  fontSize: 18,
+                  fontWeight: 600,
+                  opacity: 0.7,
+                  marginLeft: 6,
+                  fontFamily: "inherit",
+                }}
+              >
+                pts
+              </span>
+            </div>
+          )}
           <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
-            {profile?.totalScans ?? 0} ขวด ตลอดกาล
+            {loading ? <span style={{ opacity: 0 }}>—</span> : `${profile?.totalScans ?? 0} ขวด ตลอดกาล`}
           </div>
         </div>
       </div>
@@ -330,12 +366,9 @@ export default function HomePage() {
         >
           {[
             { href: "/scan", emoji: "📸", label: "สแกนขวด", bg: t.moss },
-            {
-              href: "/leaderboard",
-              emoji: "🏆",
-              label: "กระดานอันดับ",
-              bg: t.forest,
-            },
+            { href: "/leaderboard", emoji: "🏆", label: "กระดานอันดับ", bg: t.forest },
+            { href: "/history", emoji: "📋", label: "ประวัติสแกน", bg: t.leaf },
+            { href: "/profile", emoji: "🌱", label: "โปรไฟล์", bg: "#2A5E3F" },
           ].map(({ href, emoji, label, bg }) => (
             <Link
               key={href}

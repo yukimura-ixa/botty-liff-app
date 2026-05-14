@@ -85,6 +85,7 @@ export default function OnboardPage() {
             color: t.forest,
             marginBottom: 6,
             letterSpacing: -0.3,
+            fontFamily: "var(--font-kanit), inherit",
           }}
         >
           แนะนำตัวสักหน่อย
@@ -362,6 +363,7 @@ function Segmented({
             border: "none",
             cursor: "pointer",
             fontFamily: "inherit",
+            transition: "background 0.18s, color 0.18s",
           }}
         >
           {o}
