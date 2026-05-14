@@ -2,13 +2,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Botty from "@/components/botty/Botty";
+import DesktopBlock from "@/components/shared/DesktopBlock";
 import { theme as t } from "@/lib/theme";
 import { initLiff, getLineIdToken } from "@/lib/liff";
 import { authLine, ApiError } from "@/lib/api";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
-type Phase = "init" | "authenticating" | "redirecting" | "error";
+type Phase = "init" | "authenticating" | "redirecting" | "error" | "desktop";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +28,18 @@ export default function LoginPage() {
         }
 
         const liff = await initLiff();
+
+        // Detect if running outside LINE client
+        if (liff.getOS() === 'web') {
+          const isMobile = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+          if (!isMobile) {
+            if (!cancelled) setPhase('desktop');
+            return;
+          }
+          // Mobile browser — redirect into LINE app
+          liff.login({ redirectUri: window.location.href });
+          return;
+        }
 
         if (!liff.isLoggedIn()) {
           liff.login({ redirectUri: window.location.href });
@@ -96,6 +109,8 @@ export default function LoginPage() {
       cancelled = true;
     };
   }, [router]);
+
+  if (phase === 'desktop') return <DesktopBlock />;
 
   return (
     <main
