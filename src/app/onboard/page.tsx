@@ -8,7 +8,7 @@ import { GRADE_LEVELS, ROOM_LEVELS } from "@/lib/class-options";
 export default function OnboardPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
-  const [nickname, setNick] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [grade, setGrade] = useState("");
   const [room, setRoom] = useState("");
   const [consent, setConsent] = useState(false);
@@ -17,7 +17,7 @@ export default function OnboardPage() {
 
   const ready =
     fullName.trim() &&
-    nickname.trim() &&
+    studentId.trim() &&
     grade !== "" &&
     room !== "" &&
     consent;
@@ -28,7 +28,7 @@ export default function OnboardPage() {
       setSaving(true);
       await onboard({
         fullName: fullName.trim(),
-        nickname: nickname.trim(),
+        studentId: studentId.trim(),
         grade: Number(grade),
         room: Number(room),
         consent: true,
@@ -110,38 +110,15 @@ export default function OnboardPage() {
           />
         </Field>
 
-        {/* Nickname */}
-        <Field
-          label={
-            <>
-              ชื่อเล่น{" "}
-              <span style={{ color: t.muted, fontWeight: 500 }}>
-                · แสดงในกระดานอันดับ
-              </span>
-            </>
-          }
-        >
-          <div style={{ position: "relative" }}>
-            <input
-              value={nickname}
-              maxLength={12}
-              onChange={(e) => setNick(e.target.value.slice(0, 12))}
-              placeholder="เช่น พิมพ์"
-              style={inputStyle(!!nickname)}
-            />
-            <span
-              style={{
-                position: "absolute",
-                right: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                fontSize: 11,
-                color: t.muted,
-              }}
-            >
-              {nickname.length}/12
-            </span>
-          </div>
+        {/* Student ID */}
+        <Field label="เลขประจำตัวนักเรียน">
+          <input
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value.replace(/\D/g, ""))}
+            placeholder="เช่น 12345"
+            inputMode="numeric"
+            style={inputStyle(!!studentId)}
+          />
         </Field>
 
         {/* Class picker */}
@@ -212,10 +189,7 @@ export default function OnboardPage() {
                 whiteSpace: "nowrap",
               }}
             >
-              {nickname || "ชื่อเล่น"} ·{" "}
-              <span style={{ color: t.muted, fontWeight: 500 }}>
-                {fullName || "ชื่อ-นามสกุล"}
-              </span>
+              {fullName || "ชื่อ-นามสกุล"}
             </div>
             <div style={{ fontSize: 11.5, color: t.muted }}>
               ม.{grade}/{room} · ระดับ ต้นกล้า

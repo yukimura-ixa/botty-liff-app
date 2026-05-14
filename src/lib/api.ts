@@ -67,7 +67,7 @@ export function getMe() {
   return request<StudentProfile>('/me')
 }
 
-export function onboard(payload: { fullName: string; nickname: string; grade: number; room: number; consent: boolean }) {
+export function onboard(payload: { fullName: string; studentId: string; grade: number; room: number; consent: boolean }) {
   return request<StudentProfile>('/me/onboard', { method: 'POST', body: JSON.stringify(payload) })
 }
 
