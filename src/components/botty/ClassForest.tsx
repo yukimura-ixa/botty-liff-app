@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { theme as t } from '@/lib/theme'
 import type { ClassEntry } from '@/lib/api'
 
@@ -140,7 +140,7 @@ function IslandSurface({ stage, mine }: { stage: number; mine: boolean }) {
 // ─── Island scenery (trees) ───────────────────────────────────────
 
 function IslandScenery({ stage, mine }: { stage: number; mine: boolean }) {
-  function upright(children: React.ReactNode, x: number, y: number) {
+  function upright(children: ReactNode, x: number, y: number) {
     return (
       <div style={{
         position: 'absolute', left: '50%', top: '50%',
@@ -207,9 +207,10 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
     )
   }
 
-  const active = classes[Math.min(activeIdx, classes.length - 1)]
-  const stage  = classStage(active.totalPoints, thresholds)
-  const isMine = active.classKey === myClassKey
+  const safeIdx = Math.min(activeIdx, classes.length - 1)
+  const active  = classes[safeIdx]
+  const stage   = classStage(active.totalPoints, thresholds)
+  const isMine  = active.classKey === myClassKey
 
   return (
     <div style={{
@@ -250,7 +251,7 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
             fontSize: 11.5, fontWeight: 700, color: t.forest,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            {(['🥇','🥈','🥉'] as const)[activeIdx] ?? `#${activeIdx + 1}`} อันดับ #{activeIdx + 1}
+            {(['🥇','🥈','🥉'] as const)[safeIdx] ?? `#${safeIdx + 1}`} อันดับ #{safeIdx + 1}
           </div>
           <div style={{
             background: isMine ? t.forest : 'rgba(255,255,255,0.85)',
@@ -280,7 +281,7 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
           {classes.map((cls, i) => {
             const cStage  = classStage(cls.totalPoints, thresholds)
             const cMine   = cls.classKey === myClassKey
-            const isActive = i === activeIdx
+            const isActive = i === safeIdx
             return (
               <button
                 key={cls.classKey}
