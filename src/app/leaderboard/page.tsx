@@ -2,12 +2,13 @@
 import { useEffect, useState } from 'react';
 import BottomNav from '@/components/shared/BottomNav';
 import { theme as t } from '@/lib/theme';
-import { getLeaderboard, type LeaderboardEntry, type LeaderboardResponse } from '@/lib/api';
+import { getLeaderboard, getClasses, getForestStages, getMe, type LeaderboardEntry, type LeaderboardResponse, type ClassEntry } from '@/lib/api';
+import { ClassForest } from '@/components/botty/ClassForest';
 
-type Scope  = 'class' | 'grade' | 'school';
+type Scope  = 'class' | 'grade' | 'school' | 'forest';
 type Period = 'week' | 'month' | 'all';
 
-const scopeLabels: Record<Scope, string>  = { class: 'ห้อง', grade: 'ระดับชั้น', school: 'ทั้งโรงเรียน' };
+const scopeLabels: Record<Scope, string>  = { class: 'ห้อง', grade: 'ระดับชั้น', school: 'ทั้งโรงเรียน', forest: 'ป่า' };
 const periodLabels: Record<Period, string> = { week: 'สัปดาห์นี้', month: 'เดือนนี้', all: 'ตลอดกาล' };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -18,7 +19,15 @@ export default function LeaderboardPage() {
   const [data, setData]     = useState<LeaderboardResponse | null>(null);
   const [error, setError]   = useState('');
 
-  function load(s: Scope, p: Period) {
+  const [forestClasses,    setForestClasses]    = useState<ClassEntry[]>([])
+  const [forestThresholds, setForestThresholds] = useState<[number, number, number]>([1000, 2500, 5000])
+  const [myClassKey,       setMyClassKey]       = useState('')
+  const [forestLoading,    setForestLoading]    = useState(false)
+  const [forestError,      setForestError]      = useState('')
+
+  type LeaderboardScope = 'class' | 'grade' | 'school';
+
+  function load(s: LeaderboardScope, p: Period) {
     setData(null);
     setError('');
     getLeaderboard(s, p)
@@ -26,7 +35,22 @@ export default function LeaderboardPage() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ'));
   }
 
-  useEffect(() => { load(scope, period); }, [scope, period]);
+  useEffect(() => { if (scope !== 'forest') load(scope, period); }, [scope, period]);
+
+  function loadForest() {
+    setForestLoading(true)
+    setForestError('')
+    Promise.all([getClasses(), getForestStages(), getMe()])
+      .then(([cls, stages, me]) => {
+        setForestClasses(cls.classes)
+        setForestThresholds(stages.thresholds)
+        setMyClassKey(me.classKey ?? '')
+      })
+      .catch((e: unknown) => setForestError(e instanceof Error ? e.message : 'โหลดไม่สำเร็จ'))
+      .finally(() => setForestLoading(false))
+  }
+
+  useEffect(() => { if (scope === 'forest') loadForest() }, [scope])
 
   const top3 = (data?.entries ?? []).slice(0, 3);
   const rest  = (data?.entries ?? []).slice(3);
@@ -56,22 +80,45 @@ export default function LeaderboardPage() {
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, fontSize: 11.5 }}>
-          {(Object.keys(periodLabels) as Period[]).map(k => (
-            <button key={k} onClick={() => setPeriod(k)} style={{
-              padding: '6px 12px', borderRadius: 999, border: `1px solid ${period === k ? 'rgba(255,255,255,0.3)' : 'transparent'}`,
-              background: period === k ? 'rgba(255,255,255,0.2)' : 'transparent',
-              color: period === k ? 'white' : 'rgba(255,255,255,0.65)',
-              fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-            }}>{periodLabels[k]}</button>
-          ))}
-        </div>
+        {scope !== 'forest' && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, fontSize: 11.5 }}>
+            {(Object.keys(periodLabels) as Period[]).map(k => (
+              <button key={k} onClick={() => setPeriod(k)} style={{
+                padding: '6px 12px', borderRadius: 999, border: `1px solid ${period === k ? 'rgba(255,255,255,0.3)' : 'transparent'}`,
+                background: period === k ? 'rgba(255,255,255,0.2)' : 'transparent',
+                color: period === k ? 'white' : 'rgba(255,255,255,0.65)',
+                fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              }}>{periodLabels[k]}</button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {error ? (
+      {scope === 'forest' ? (
+        <div style={{ padding: '16px 18px' }}>
+          {forestError ? (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ color: t.coral, fontSize: 13, marginBottom: 12 }}>{forestError}</div>
+              <button onClick={loadForest} style={{
+                background: t.moss, color: 'white', border: 'none',
+                padding: '10px 24px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>ลองใหม่</button>
+            </div>
+          ) : forestLoading ? (
+            <div style={{ height: 280, borderRadius: 20, background: t.mint, opacity: 0.4 }} />
+          ) : (
+            <ClassForest
+              classes={forestClasses}
+              myClassKey={myClassKey}
+              thresholds={forestThresholds}
+            />
+          )}
+        </div>
+      ) : error ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <div style={{ color: t.coral, fontSize: 13, marginBottom: 12 }}>{error}</div>
-          <button onClick={() => load(scope, period)} style={{
+          <button onClick={() => load(scope as LeaderboardScope, period)} style={{
             background: t.moss, color: 'white', border: 'none',
             padding: '10px 24px', borderRadius: 12, fontSize: 13, fontWeight: 600,
             cursor: 'pointer', fontFamily: 'inherit',
