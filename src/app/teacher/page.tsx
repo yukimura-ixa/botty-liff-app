@@ -6,6 +6,8 @@ import {
   getTeacherKPIs,
   getStudents,
   exportToSheets,
+  getForestStages,
+  updateForestStages,
   type StudentProfile,
   type TeacherKPIs,
 } from "@/lib/api";
@@ -19,6 +21,10 @@ export default function TeacherDashPage() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [studentsLoading, setStudentsLoading] = useState(false);
+  const [forestThresholds, setForestThresholds] = useState<[number, number, number]>([1000, 2500, 5000])
+  const [forestSaving,     setForestSaving]     = useState(false)
+  const [forestSaveError,  setForestSaveError]  = useState('')
+  const [forestSaveOk,     setForestSaveOk]     = useState(false)
 
   useEffect(() => {
     getTeacherKPIs()
@@ -38,6 +44,10 @@ export default function TeacherDashPage() {
       .finally(() => setStudentsLoading(false));
   }, [q, classKey]);
 
+  useEffect(() => {
+    getForestStages().then(cfg => setForestThresholds(cfg.thresholds))
+  }, [])
+
   async function handleExport() {
     setExporting(true);
     try {
@@ -55,6 +65,20 @@ export default function TeacherDashPage() {
       console.error(e);
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleSaveForest() {
+    setForestSaving(true)
+    setForestSaveError('')
+    setForestSaveOk(false)
+    try {
+      await updateForestStages(forestThresholds)
+      setForestSaveOk(true)
+    } catch (e: unknown) {
+      setForestSaveError(e instanceof Error ? e.message : 'บันทึกไม่สำเร็จ')
+    } finally {
+      setForestSaving(false)
     }
   }
 
@@ -401,6 +425,61 @@ export default function TeacherDashPage() {
           </div>
         )}
       </div>
+
+      {/* Forest stages config */}
+      <section style={{ margin: '24px 18px 0' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: t.forest, marginBottom: 12 }}>
+          ตั้งค่าป่า
+        </div>
+        <div style={{ background: 'white', borderRadius: 16, padding: 16, border: `1px solid ${t.mint}` }}>
+          <div style={{ fontSize: 12, color: t.muted, marginBottom: 12 }}>
+            คะแนนขั้นต่ำของแต่ละด่าน (ต่อห้อง)
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            {(['ด่าน 1', 'ด่าน 2', 'ด่าน 3'] as const).map((label, i) => (
+              <div key={i} style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, marginBottom: 4 }}>{label}</div>
+                <input
+                  type="number"
+                  value={forestThresholds[i]}
+                  onChange={e => {
+                    const val = Number(e.target.value)
+                    setForestThresholds(prev => {
+                      const next = [...prev] as [number, number, number]
+                      next[i] = val
+                      return next
+                    })
+                  }}
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8,
+                    border: `1px solid ${t.mint}`, fontSize: 14,
+                    fontFamily: 'inherit', outline: 'none',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          {forestSaveError && (
+            <div style={{ fontSize: 12, color: t.coral, marginBottom: 8 }}>{forestSaveError}</div>
+          )}
+          {forestSaveOk && (
+            <div style={{ fontSize: 12, color: t.moss, marginBottom: 8 }}>บันทึกแล้ว ✓</div>
+          )}
+          <button
+            onClick={handleSaveForest}
+            disabled={forestSaving}
+            style={{
+              width: '100%', height: 42, borderRadius: 10, border: 'none',
+              background: forestSaving ? t.muted : t.forest,
+              color: 'white', fontSize: 13, fontWeight: 700,
+              cursor: forestSaving ? 'default' : 'pointer',
+              fontFamily: 'inherit', opacity: forestSaving ? 0.6 : 1,
+            }}
+          >
+            {forestSaving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
+          </button>
+        </div>
+      </section>
     </main>
   );
 }
