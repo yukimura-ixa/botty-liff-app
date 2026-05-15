@@ -3,6 +3,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
 import { uploadScan, type ScanResult } from "@/lib/api";
+import { RankTree } from '@/components/botty/RankTree'
 
 type State = "idle" | "scanning" | "uploading" | "result" | "error";
 
@@ -207,6 +208,31 @@ export default function ScanPage() {
               <span style={{ fontWeight: 700, color: t.gold }}>{v}</span>
             </div>
           ))}
+        </div>
+        {/* Rank tree */}
+        <div style={{ textAlign: 'center', paddingTop: 8 }}>
+          {result.newRank !== result.prevRank && (
+            <div style={{
+              fontSize: 13, fontWeight: 700, color: t.gold, marginBottom: 8,
+              animation: 'rankBadgePop 0.4s ease-out',
+            }}>
+              🎊 เลื่อนระดับแล้ว!
+            </div>
+          )}
+          <RankTree
+            rank={result.newRank || 'ต้นกล้า'}
+            animate={result.newRank !== result.prevRank}
+            size={80}
+          />
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>
+            {result.newRank || 'ต้นกล้า'}
+          </div>
+          <style>{`
+            @keyframes rankBadgePop {
+              from { transform: scale(0.5); opacity: 0; }
+              to   { transform: scale(1);   opacity: 1; }
+            }
+          `}</style>
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 10, width: "100%" }}>
