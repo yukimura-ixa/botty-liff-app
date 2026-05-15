@@ -165,3 +165,30 @@ export function exportToSheets(payload: { classKey?: string; from: string; to: s
     method: 'POST', body: JSON.stringify(payload),
   })
 }
+
+// ── Forest ────────────────────────────────────────────────────
+export interface ClassEntry {
+  classKey: string
+  totalPoints: number
+  studentCount: number
+}
+
+export interface ForestStagesConfig {
+  thresholds: [number, number, number]
+}
+
+export function getClasses() {
+  return request<{ classes: ClassEntry[] }>('/classes')
+}
+
+export function getForestStages(): Promise<ForestStagesConfig> {
+  return request<ForestStagesConfig>('/config/forest-stages')
+    .catch(() => ({ thresholds: [1000, 2500, 5000] as [number, number, number] }))
+}
+
+export function updateForestStages(thresholds: [number, number, number]) {
+  return request<ForestStagesConfig>('/teacher/config/forest-stages', {
+    method: 'PUT',
+    body: JSON.stringify({ thresholds }),
+  })
+}
