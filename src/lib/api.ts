@@ -80,6 +80,8 @@ export interface ScanResult {
   totalPoints: number
   newTotalPoints: number
   streakDays: number
+  newRank: string
+  prevRank: string
 }
 
 export function uploadScan(image: File, clientConfidence?: number) {
