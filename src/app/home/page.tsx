@@ -12,6 +12,7 @@ import {
   type StudentProfile,
   type SchoolGoal,
 } from "@/lib/api";
+import { RankTree } from '@/components/botty/RankTree'
 
 export default function HomePage() {
   const router = useRouter();
@@ -235,68 +236,26 @@ export default function HomePage() {
           border: `1px solid ${t.mint}`,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 11,
-                color: t.muted,
-                letterSpacing: 1,
-                fontWeight: 700,
-              }}
-            >
-              ระดับปัจจุบัน
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginTop: 4,
-              }}
-            >
-              <span style={{ fontSize: 28 }}>{curDef.emoji}</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: t.forest }}>
+        {loading ? (
+          <div style={{ height: 100, borderRadius: 10, background: t.mint, opacity: 0.4 }} />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <RankTree rank={curDef.k} size={80} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: t.muted, letterSpacing: 1, fontWeight: 700 }}>
+                ระดับปัจจุบัน
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: t.forest, marginTop: 2 }}>
                 {curDef.k}
-              </span>
+              </div>
+              <div style={{ fontSize: 12, color: t.moss, marginTop: 4 }}>
+                {nextDef.k !== curDef.k
+                  ? `อีก ${Math.max(0, nextDef.min - pts).toLocaleString()} pts → ${nextDef.emoji} ${nextDef.k}`
+                  : '🌲 ระดับสูงสุด'}
+              </div>
             </div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>
-              เป้าถัดไป
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: t.moss }}>
-              {nextDef.emoji} {nextDef.k}
-            </div>
-            <div style={{ fontSize: 11, color: t.muted, marginTop: 1 }}>
-              อีก {Math.max(0, nextDef.min - pts).toLocaleString()} pts
-            </div>
-          </div>
-        </div>
-        <div
-          style={{
-            marginTop: 14,
-            height: 10,
-            borderRadius: 5,
-            background: t.mint,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${pct}%`,
-              background: `linear-gradient(90deg, ${t.leaf}, ${t.moss})`,
-              borderRadius: 5,
-            }}
-          />
-        </div>
+        )}
       </div>
 
       {/* School goal */}
