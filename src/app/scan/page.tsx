@@ -5,7 +5,7 @@ import { theme as t } from "@/lib/theme";
 import { uploadScan, ApiError, type ScanResult } from "@/lib/api";
 import { RankTree } from '@/components/botty/RankTree'
 
-type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate";
+type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate" | "cooldown" | "dailylimit";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -14,6 +14,22 @@ export default function ScanPage() {
   const [state, setState] = useState<State>("idle");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState("");
+  const [retryAfter, setRetryAfter] = useState(0);
+  const [dailyLimit, setDailyLimit] = useState(0);
+
+  useEffect(() => {
+    if (state !== "cooldown" || retryAfter <= 0) return;
+    const id = setInterval(() => {
+      setRetryAfter((s) => {
+        if (s <= 1) {
+          setState("idle");
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [state, retryAfter]);
 
   // Set srcObject after video element mounts (stream state change triggers re-render first)
   useEffect(() => {
@@ -58,6 +74,16 @@ export default function ScanPage() {
           setState("result");
         } catch (e: unknown) {
           if (e instanceof ApiError) {
+            if (e.status === 429 && e.code === "cooldown") {
+              setRetryAfter(Number(e.data?.retryAfter) || 60);
+              setState("cooldown");
+              return;
+            }
+            if (e.status === 429 && e.code === "daily_limit") {
+              setDailyLimit(Number(e.data?.limit) || 20);
+              setState("dailylimit");
+              return;
+            }
             if (e.status === 422 || /PET/i.test(e.message)) {
               setState("notbottle");
               return;
@@ -291,6 +317,35 @@ export default function ScanPage() {
             สแกนต่อ →
           </button>
         </div>
+      </main>
+    );
+
+  if (state === "cooldown")
+    return (
+      <main style={{ minHeight: "100dvh", background: "#0A0F0C", color: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        <div style={{ fontSize: 56 }}>⏱️</div>
+        <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>รอสักครู่</div>
+        <div style={{ fontSize: 48, fontWeight: 900, color: t.gold, lineHeight: 1 }}>{retryAfter}s</div>
+        <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+          ป้องกันการสแกนถี่เกินไป<br/>กรุณารอครบเวลา
+        </div>
+        <button onClick={() => router.replace("/home")} style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          กลับหน้าหลัก
+        </button>
+      </main>
+    );
+
+  if (state === "dailylimit")
+    return (
+      <main style={{ minHeight: "100dvh", background: "#0A0F0C", color: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        <div style={{ fontSize: 56 }}>🌙</div>
+        <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>ครบโควต้าวันนี้แล้ว</div>
+        <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+          สแกนได้สูงสุด {dailyLimit} ครั้งต่อวัน<br/>กลับมาใหม่พรุ่งนี้
+        </div>
+        <button onClick={() => router.replace("/home")} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          กลับหน้าหลัก
+        </button>
       </main>
     );
 

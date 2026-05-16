@@ -13,10 +13,12 @@ export function formatClassKey(key?: string | null): string {
 export class ApiError extends Error {
   status: number
   code?: string
-  constructor(status: number, message: string, code?: string) {
+  data?: Record<string, unknown>
+  constructor(status: number, message: string, code?: string, data?: Record<string, unknown>) {
     super(message)
     this.status = status
     this.code = code
+    this.data = data
     this.name = 'ApiError'
   }
 }
@@ -52,14 +54,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.text()
     let msg = body || res.statusText
     let code: string | undefined
+    let data: Record<string, unknown> | undefined
     try {
-      const parsed = JSON.parse(body) as { error?: string }
-      if (parsed.error) {
+      const parsed = JSON.parse(body) as Record<string, unknown>
+      data = parsed
+      if (typeof parsed.error === 'string') {
         msg = parsed.error
         code = parsed.error
       }
     } catch { /* not JSON */ }
-    throw new ApiError(res.status, msg, code)
+    throw new ApiError(res.status, msg, code, data)
   }
   return res.json() as Promise<T>
 }
