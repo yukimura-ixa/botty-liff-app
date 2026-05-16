@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { theme as t } from '@/lib/theme'
-import type { ClassEntry } from '@/lib/api'
+import { formatClassKey, type ClassEntry } from '@/lib/api'
 
 export function classStage(pts: number, thresholds: [number, number, number]): number {
   return thresholds.filter(th => pts >= th).length
@@ -261,7 +261,7 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
             border: isMine ? `1px solid #D9A441` : `1px solid ${t.mint}`,
             fontSize: 11.5, fontWeight: 700, textAlign: 'right',
           }}>
-            <div style={{ fontSize: 13 }}>{active.classKey}{isMine && ' ★'}</div>
+            <div style={{ fontSize: 13 }}>{formatClassKey(active.classKey)}{isMine && ' ★'}</div>
             <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
               {active.totalPoints.toLocaleString()} pts · {STAGE_NAME[stage]}
             </div>
@@ -298,7 +298,7 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
               >
                 <MiniIsland stage={cStage} active={isActive}/>
                 <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                  <span>{cls.classKey}</span>
+                  <span>{formatClassKey(cls.classKey)}</span>
                   <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>
                     {cls.totalPoints.toLocaleString()}
                   </span>

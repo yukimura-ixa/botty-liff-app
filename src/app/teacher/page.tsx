@@ -8,6 +8,7 @@ import {
   exportToSheets,
   getForestStages,
   updateForestStages,
+  formatClassKey,
   type StudentProfile,
   type TeacherKPIs,
 } from "@/lib/api";
@@ -378,10 +379,10 @@ export default function TeacherDashPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {s.nickname}
+                    {s.fullName}
                   </div>
                   <div style={{ fontSize: 10.5, color: t.muted }}>
-                    {s.classKey}
+                    {formatClassKey(s.classKey)}
                   </div>
                 </div>
               </div>

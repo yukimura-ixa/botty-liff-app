@@ -171,13 +171,21 @@ export default function ScanPage() {
         </div>
         <div
           style={{
-            fontSize: 11,
-            background: "rgba(255,255,255,0.15)",
-            padding: "6px 14px",
-            borderRadius: 999,
+            display: "flex",
+            gap: 6,
+            flexWrap: "wrap",
+            justifyContent: "center",
           }}
         >
-          {result.material} · {result.sizeMl}ml
+          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+            {result.detectedClass || "PET Bottle"}
+          </span>
+          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+            {(result.confidence * 100).toFixed(0)}% มั่นใจ
+          </span>
+          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+            {result.itemCount} ชิ้น
+          </span>
         </div>
         <div
           style={{

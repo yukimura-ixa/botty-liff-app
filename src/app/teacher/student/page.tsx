@@ -2,7 +2,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { theme as t } from '@/lib/theme';
-import { getStudent, exportToSheets, type StudentProfile } from '@/lib/api';
+import { getStudent, exportToSheets, formatClassKey, type StudentProfile } from '@/lib/api';
 
 type StudentWithSeries = StudentProfile & { sevenDaySeries: number[] };
 const DAY_LABELS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
@@ -55,7 +55,7 @@ function TeacherProfileContent() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ width: 60, height: 60, borderRadius: 30, background: 'rgba(255,255,255,0.2)', fontSize: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(255,255,255,0.3)' }}>🌱</div>
-              <div><div style={{ fontSize: 18, fontWeight: 800 }}>{student.fullName}</div><div style={{ fontSize: 12, opacity: 0.85 }}>{student.classKey}</div></div>
+              <div><div style={{ fontSize: 18, fontWeight: 800 }}>{student.fullName}</div><div style={{ fontSize: 12, opacity: 0.85 }}>{formatClassKey(student.classKey)}</div></div>
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 14, fontSize: 11 }}>
               {[['คะแนน', student.totalPoints.toLocaleString()],['สตรีค',`${student.streakDays} 🔥`],['ขวด',student.totalScans],['ระดับ',student.rank]].map(([k,v]) => (

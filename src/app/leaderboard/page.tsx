@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import BottomNav from '@/components/shared/BottomNav';
 import { theme as t } from '@/lib/theme';
-import { getLeaderboard, getClasses, getForestStages, getMe, type LeaderboardEntry, type LeaderboardResponse, type ClassEntry } from '@/lib/api';
+import { getLeaderboard, getClasses, getForestStages, getMe, formatClassKey, type LeaderboardEntry, type LeaderboardResponse, type ClassEntry } from '@/lib/api';
 import { ClassForest } from '@/components/botty/ClassForest';
 
 type Scope  = 'class' | 'grade' | 'school' | 'forest';
@@ -147,8 +147,8 @@ export default function LeaderboardPage() {
                         background: 'white', border: `3px solid ${color}`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
                       }}>{MEDALS[place - 1]}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: t.ink }}>{p.nickname}</div>
-                      <div style={{ fontSize: 10, color: t.muted, marginBottom: 6 }}>{p.classKey}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: t.ink }}>{p.fullName}</div>
+                      <div style={{ fontSize: 10, color: t.muted, marginBottom: 6 }}>{formatClassKey(p.classKey)}</div>
                       <div style={{
                         height: h, borderRadius: '12px 12px 0 0',
                         background: `linear-gradient(180deg, ${color}, ${color}cc)`,
@@ -182,7 +182,7 @@ export default function LeaderboardPage() {
                 }}>YOU</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: t.forest, minWidth: 24 }}>{data.myRank}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.ink }}>{data.myEntry.nickname} · {data.myEntry.classKey}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.ink }}>{data.myEntry.fullName} · {formatClassKey(data.myEntry.classKey)}</div>
                   <div style={{ fontSize: 11, color: t.muted }}>{data.myEntry.scans} ขวด</div>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: t.moss }}>{data.myEntry.points.toLocaleString()}</div>
@@ -196,7 +196,7 @@ export default function LeaderboardPage() {
               }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: t.muted, minWidth: 24 }}>{i + 4}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.ink }}>{s.nickname} · <span style={{ color: t.muted }}>{s.classKey}</span></div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.ink }}>{s.fullName} · <span style={{ color: t.muted }}>{formatClassKey(s.classKey)}</span></div>
                   <div style={{ fontSize: 11, color: t.muted }}>{s.scans} ขวด</div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: t.forest }}>{s.points.toLocaleString()}</div>

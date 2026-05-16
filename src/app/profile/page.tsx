@@ -71,8 +71,7 @@ export default function ProfilePage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36,
           }}>{rank.emoji}</div>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>{profile?.nickname ?? '...'}</div>
-            <div style={{ fontSize: 13, opacity: 0.85 }}>{profile?.fullName}</div>
+            <div style={{ fontSize: 20, fontWeight: 800 }}>{profile?.fullName ?? '...'}</div>
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
               ม.{profile?.classGrade}/{profile?.classRoom} · {rank.k}
             </div>

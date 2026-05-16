@@ -2,6 +2,14 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? '/v1'
 
+// Format internal classKey (e.g. "4-3") to Thai display ("ม.4/3"). Legacy "4/3" also handled.
+export function formatClassKey(key?: string | null): string {
+  if (!key) return ''
+  const m = key.match(/^(\d+)[-/](\d+)$/)
+  if (!m) return key
+  return `ม.${m[1]}/${m[2]}`
+}
+
 export class ApiError extends Error {
   status: number
   code?: string
@@ -67,7 +75,7 @@ export function authLine(idToken: string) {
 // ── Student ───────────────────────────────────────────────────
 export interface StudentProfile {
   uid: string; lineUserId: string; role: string
-  fullName: string; nickname: string
+  fullName: string
   classGrade: number; classRoom: number; classKey: string
   totalPoints: number; totalScans: number; rank: string
   streakDays: number; lastScanLocalDate: string
@@ -84,8 +92,9 @@ export function onboard(payload: { fullName: string; studentId: string; grade: n
 
 export interface ScanResult {
   scanId: string
-  material: string
-  sizeMl: number
+  detectedClass: string
+  confidence: number
+  itemCount: number
   basePoints: number
   streakBonus: number
   totalPoints: number
@@ -109,8 +118,9 @@ export function uploadScan(image: File, clientConfidence?: number) {
 
 export interface ScanHistoryEntry {
   scanId: string
-  material: string
-  sizeMl: number
+  detectedClass: string
+  confidence: number
+  itemCount: number
   totalPoints: number
   capturedAt: string
 }
@@ -121,7 +131,7 @@ export function getMyScans(limit = 20, cursor?: string) {
 }
 
 export interface LeaderboardEntry {
-  uid: string; fullName: string; nickname: string; classKey: string
+  uid: string; fullName: string; classKey: string
   rank: string; points: number; scans: number; streakDays: number
 }
 export interface LeaderboardResponse {

@@ -69,7 +69,7 @@ export default function HistoryPage() {
               }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: t.mint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>♻️</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: t.ink }}>{s.material} {s.sizeMl}ml</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: t.ink }}>{s.detectedClass || 'PET Bottle'} · {s.itemCount} ชิ้น · {(s.confidence * 100).toFixed(0)}%</div>
                   <div style={{ fontSize: 11, color: t.muted }}>{new Date(s.capturedAt).toLocaleString('th-TH')}</div>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: t.moss }}>+{s.totalPoints}</div>
