@@ -4,9 +4,11 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? '/v1'
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  code?: string
+  constructor(status: number, message: string, code?: string) {
     super(message)
     this.status = status
+    this.code = code
     this.name = 'ApiError'
   }
 }
@@ -40,7 +42,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const body = await res.text()
-    throw new ApiError(res.status, body || res.statusText)
+    let msg = body || res.statusText
+    let code: string | undefined
+    try {
+      const parsed = JSON.parse(body) as { error?: string }
+      if (parsed.error) {
+        msg = parsed.error
+        code = parsed.error
+      }
+    } catch { /* not JSON */ }
+    throw new ApiError(res.status, msg, code)
   }
   return res.json() as Promise<T>
 }

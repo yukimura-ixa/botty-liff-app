@@ -2,10 +2,10 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
-import { uploadScan, type ScanResult } from "@/lib/api";
+import { uploadScan, ApiError, type ScanResult } from "@/lib/api";
 import { RankTree } from '@/components/botty/RankTree'
 
-type State = "idle" | "scanning" | "uploading" | "result" | "error";
+type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -57,7 +57,19 @@ export default function ScanPage() {
           setResult(res);
           setState("result");
         } catch (e: unknown) {
-          setError(e instanceof Error ? e.message : "การสแกนล้มเหลว");
+          if (e instanceof ApiError) {
+            if (e.status === 422 || /PET/i.test(e.message)) {
+              setState("notbottle");
+              return;
+            }
+            if (e.status === 409 || /duplicate/i.test(e.message)) {
+              setState("duplicate");
+              return;
+            }
+            setError(e.message);
+          } else {
+            setError(e instanceof Error ? e.message : "การสแกนล้มเหลว");
+          }
           setState("error");
         }
       },
@@ -271,6 +283,40 @@ export default function ScanPage() {
             สแกนต่อ →
           </button>
         </div>
+      </main>
+    );
+
+  if (state === "notbottle")
+    return (
+      <main style={{ minHeight: "100dvh", background: "#0A0F0C", color: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        <div style={{ fontSize: 56 }}>🤔</div>
+        <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>ไม่พบขวด PET ในรูป</div>
+        <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+          ลองจัดขวดให้อยู่กลางจอ<br/>แสงสว่างพอ · พื้นหลังไม่ซับซ้อน
+        </div>
+        <button onClick={() => setState("idle")} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          ลองอีกครั้ง
+        </button>
+        <button onClick={() => router.back()} style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          ← กลับ
+        </button>
+      </main>
+    );
+
+  if (state === "duplicate")
+    return (
+      <main style={{ minHeight: "100dvh", background: "#0A0F0C", color: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        <div style={{ fontSize: 56 }}>♻️</div>
+        <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>ขวดนี้สแกนไปแล้ว</div>
+        <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+          ระบบป้องกันการสแกนซ้ำใน 24 ชม.<br/>ลองสแกนขวดใหม่
+        </div>
+        <button onClick={() => setState("idle")} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          สแกนขวดใหม่
+        </button>
+        <button onClick={() => router.replace("/home")} style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          กลับหน้าหลัก
+        </button>
       </main>
     );
 
