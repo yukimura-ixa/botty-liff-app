@@ -22,7 +22,7 @@ export default function TeacherDashPage() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [studentsLoading, setStudentsLoading] = useState(false);
-  const [forestThresholds, setForestThresholds] = useState<[number, number, number]>([1000, 2500, 5000])
+  const [forestThresholds, setForestThresholds] = useState<[number, number, number]>([25, 75, 175])
   const [forestSaving,     setForestSaving]     = useState(false)
   const [forestSaveError,  setForestSaveError]  = useState('')
   const [forestSaveOk,     setForestSaveOk]     = useState(false)
