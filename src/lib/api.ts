@@ -281,3 +281,25 @@ export function adminListRoleChanges(targetUid?: string): Promise<{ changes: Rol
   if (targetUid) p.set('targetUid', targetUid);
   return request(`/admin/role-changes?${p}`);
 }
+
+// ── Admin / Bins ──────────────────────────────────────────────
+export type BinRow = {
+  id: string;
+  label: string;
+  active: boolean;
+  createdAt: string;
+};
+
+export function adminListBins(active?: boolean): Promise<{ bins: BinRow[] }> {
+  const p = new URLSearchParams();
+  if (active !== undefined) p.set('active', String(active));
+  return request(`/admin/bins?${p}`);
+}
+
+export function adminCreateBin(label: string): Promise<{ binId: string; label: string; qrPngBase64: string }> {
+  return request('/admin/bins', { method: 'POST', body: JSON.stringify({ label }) });
+}
+
+export function adminPatchBin(id: string, body: { label?: string; active?: boolean }) {
+  return request<{ ok: boolean }>(`/admin/bins/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
