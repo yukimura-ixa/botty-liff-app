@@ -35,3 +35,23 @@ export async function getLineIdToken(): Promise<string> {
   if (!token) throw new Error('No LINE id_token — user not logged in');
   return token;
 }
+
+// scanQrCode tries LIFF native scanner first (scanCodeV2), falls back to BarcodeDetector
+// in non-LIFF contexts. Returns the decoded text or null if scanner unavailable / cancelled.
+export async function scanQrCode(): Promise<string | null> {
+  try {
+    const liff = await getLiff();
+    if (liff.isInClient() && typeof (liff as unknown as { scanCodeV2?: () => Promise<{ value: string | null }> }).scanCodeV2 === 'function') {
+      const result = await (liff as unknown as { scanCodeV2: () => Promise<{ value: string | null }> }).scanCodeV2();
+      return result?.value ?? null;
+    }
+  } catch {
+    // fall through to BarcodeDetector
+  }
+  if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+    // BarcodeDetector requires a video stream; non-trivial to set up inline. Return null
+    // so caller can fall back to manual paste or error message.
+    return null;
+  }
+  return null;
+}

@@ -106,6 +106,8 @@ export interface ScanResult {
   streakDays: number
   newRank: string
   prevRank: string
+  pendingId?: string
+  expiresInSec?: number
 }
 
 export function uploadScan(image: File, clientConfidence?: number) {
@@ -117,6 +119,13 @@ export function uploadScan(image: File, clientConfidence?: number) {
   return request<ScanResult>('/scan/upload', {
     method: 'POST',
     body: fd,
+  })
+}
+
+export function confirmScan(pendingId: string, binToken: string) {
+  return request<{ ok: boolean; binId: string }>('/scan/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ pendingId, binToken }),
   })
 }
 

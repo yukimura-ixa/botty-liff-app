@@ -2,7 +2,8 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
-import { uploadScan, ApiError, type ScanResult } from "@/lib/api";
+import { uploadScan, confirmScan, ApiError, type ScanResult } from "@/lib/api";
+import { scanQrCode } from "@/lib/liff";
 import { RankTree } from '@/components/botty/RankTree'
 
 type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate" | "cooldown" | "dailylimit";
@@ -16,6 +17,9 @@ export default function ScanPage() {
   const [error, setError] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(0);
+  const [binPrompt, setBinPrompt] = useState<{ pendingId: string; expiresAt: number } | null>(null);
+  const [binPromptStatus, setBinPromptStatus] = useState<"idle" | "scanning" | "confirmed" | "expired" | "failed">("idle");
+  const [binPromptCountdown, setBinPromptCountdown] = useState(0);
 
   useEffect(() => {
     if (state !== "cooldown" || retryAfter <= 0) return;
@@ -30,6 +34,16 @@ export default function ScanPage() {
     }, 1000);
     return () => clearInterval(id);
   }, [state, retryAfter]);
+
+  useEffect(() => {
+    if (!binPrompt || binPromptStatus === "confirmed" || binPromptStatus === "expired") return;
+    const id = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((binPrompt.expiresAt - Date.now()) / 1000));
+      setBinPromptCountdown(remaining);
+      if (remaining === 0) setBinPromptStatus("expired");
+    }, 500);
+    return () => clearInterval(id);
+  }, [binPrompt, binPromptStatus]);
 
   // Set srcObject after video element mounts (stream state change triggers re-render first)
   useEffect(() => {
@@ -72,6 +86,11 @@ export default function ScanPage() {
           const res = await uploadScan(file);
           setResult(res);
           setState("result");
+          if (res.pendingId && res.expiresInSec) {
+            setBinPrompt({ pendingId: res.pendingId, expiresAt: Date.now() + res.expiresInSec * 1000 });
+            setBinPromptStatus("idle");
+            setBinPromptCountdown(res.expiresInSec);
+          }
         } catch (e: unknown) {
           if (e instanceof ApiError) {
             if (e.status === 429 && e.code === "cooldown") {
@@ -103,6 +122,25 @@ export default function ScanPage() {
       0.9,
     );
   }, [stream]);
+
+  async function handleScanBin() {
+    if (!binPrompt) return;
+    setBinPromptStatus("scanning");
+    try {
+      const token = await scanQrCode();
+      if (!token) {
+        setBinPromptStatus("idle");
+        alert("ไม่สามารถเปิดสแกนเนอร์ QR ได้");
+        return;
+      }
+      await confirmScan(binPrompt.pendingId, token);
+      setBinPromptStatus("confirmed");
+    } catch (e: unknown) {
+      setBinPromptStatus("failed");
+      const msg = e instanceof Error ? e.message : "ยืนยันไม่สำเร็จ";
+      alert(msg);
+    }
+  }
 
   if (state === "idle")
     return (
@@ -280,6 +318,65 @@ export default function ScanPage() {
             }
           `}</style>
         </div>
+        {binPrompt && binPromptStatus !== "confirmed" && binPromptStatus !== "expired" && (
+          <div style={{
+            background: "rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            borderRadius: 16,
+            padding: 16,
+            marginTop: 16,
+            width: "100%",
+            maxWidth: 360,
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>เดินไปทิ้งที่ถัง</div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 12 }}>
+              สแกน QR ที่ถังภายใน {binPromptCountdown} วินาที
+            </div>
+            <button
+              onClick={handleScanBin}
+              disabled={binPromptStatus === "scanning"}
+              style={{
+                background: "white",
+                color: t.forest,
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {binPromptStatus === "scanning" ? "กำลังเปิดสแกนเนอร์..." : "📷 สแกน QR ที่ถัง"}
+            </button>
+          </div>
+        )}
+        {binPromptStatus === "confirmed" && (
+          <div style={{
+            background: "rgba(255,255,255,0.2)",
+            borderRadius: 12,
+            padding: 10,
+            marginTop: 12,
+            fontSize: 13,
+            fontWeight: 700,
+            textAlign: "center",
+          }}>
+            ✓ ยืนยันการทิ้งแล้ว
+          </div>
+        )}
+        {binPromptStatus === "expired" && (
+          <div style={{
+            background: "rgba(255,200,0,0.18)",
+            borderRadius: 12,
+            padding: 10,
+            marginTop: 12,
+            fontSize: 12,
+            textAlign: "center",
+          }}>
+            หมดเวลา (คะแนนคงเดิม)
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 10, width: "100%" }}>
           <button
