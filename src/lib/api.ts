@@ -217,3 +217,46 @@ export function updateForestStages(thresholds: [number, number, number]) {
     body: JSON.stringify({ thresholds }),
   })
 }
+
+// ── Admin ─────────────────────────────────────────────────────
+export type UserRow = {
+  uid: string;
+  fullName: string;
+  classKey: string;
+  role: 'student' | 'teacher' | 'admin';
+  totalPoints: number;
+};
+
+export type RoleChange = {
+  id: string;
+  targetUid: string;
+  byUid: string;
+  fromRole: string;
+  toRole: string;
+  reason: string;
+  createdAt: string;
+};
+
+export function adminListUsers(opts: {
+  role?: string; q?: string; cursor?: string; limit?: number;
+}): Promise<{ users: UserRow[]; nextCursor: string }> {
+  const p = new URLSearchParams();
+  if (opts.role) p.set('role', opts.role);
+  if (opts.q) p.set('q', opts.q);
+  if (opts.cursor) p.set('cursor', opts.cursor);
+  if (opts.limit) p.set('limit', String(opts.limit));
+  return request(`/admin/users?${p}`);
+}
+
+export function adminChangeRole(uid: string, role: 'student' | 'teacher', reason: string) {
+  return request<{ ok: boolean; roleChangeId: string; warning?: string }>(
+    `/admin/users/${encodeURIComponent(uid)}/role`,
+    { method: 'POST', body: JSON.stringify({ role, reason }) },
+  );
+}
+
+export function adminListRoleChanges(targetUid?: string): Promise<{ changes: RoleChange[] }> {
+  const p = new URLSearchParams();
+  if (targetUid) p.set('targetUid', targetUid);
+  return request(`/admin/role-changes?${p}`);
+}
