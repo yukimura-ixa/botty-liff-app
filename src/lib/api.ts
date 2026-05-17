@@ -303,3 +303,7 @@ export function adminCreateBin(label: string): Promise<{ binId: string; label: s
 export function adminPatchBin(id: string, body: { label?: string; active?: boolean }) {
   return request<{ ok: boolean }>(`/admin/bins/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
+
+export function adminGetBinQr(id: string): Promise<{ binId: string; label: string; qrPngBase64: string }> {
+  return request(`/admin/bins/${encodeURIComponent(id)}/qr`);
+}

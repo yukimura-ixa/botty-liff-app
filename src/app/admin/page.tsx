@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { theme as t } from "@/lib/theme";
 import {
   adminListUsers, adminChangeRole, adminListRoleChanges,
-  adminListBins, adminCreateBin, adminPatchBin,
+  adminListBins, adminCreateBin, adminPatchBin, adminGetBinQr,
   type UserRow, type RoleChange, type BinRow,
 } from "@/lib/api";
 
@@ -63,34 +63,68 @@ export default function AdminPage() {
   const [err, setErr] = useState("");
 
   const [changes, setChanges] = useState<RoleChange[]>([]);
+  const [changesErr, setChangesErr] = useState("");
 
   const [bins, setBins] = useState<BinRow[]>([]);
   const [newLabel, setNewLabel] = useState("");
   const [createdQr, setCreatedQr] = useState<{ id: string; label: string; png: string } | null>(null);
   const [binBusy, setBinBusy] = useState(false);
+  const [binsErr, setBinsErr] = useState("");
 
-  async function refreshUsers() {
-    try {
-      const r = await adminListUsers({ role: roleFilter, q });
-      setUsers(r.users ?? []);
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "load failed");
-    }
-  }
+  // monotonically increasing token, used to discard stale responses when the
+  // user types fast and earlier requests resolve after later ones.
+  const usersReqSeq = useRef(0);
+
   async function refreshChanges() {
     try {
       const r = await adminListRoleChanges();
       setChanges(r.changes ?? []);
-    } catch { /* ignore */ }
+      setChangesErr("");
+    } catch (e: unknown) {
+      setChangesErr(e instanceof Error ? e.message : "load failed");
+    }
   }
   async function refreshBins() {
     try {
       const r = await adminListBins();
       setBins(r.bins ?? []);
-    } catch { /* ignore */ }
+      setBinsErr("");
+    } catch (e: unknown) {
+      setBinsErr(e instanceof Error ? e.message : "load failed");
+    }
   }
 
-  useEffect(() => { refreshUsers(); }, [roleFilter, q]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // debounce + stale-guard so each keystroke fires at most one request and
+    // the latest response wins.
+    const myReq = ++usersReqSeq.current;
+    const handle = setTimeout(async () => {
+      try {
+        const r = await adminListUsers({ role: roleFilter, q });
+        if (myReq !== usersReqSeq.current) return;
+        setUsers(r.users ?? []);
+        setErr("");
+      } catch (e: unknown) {
+        if (myReq !== usersReqSeq.current) return;
+        setErr(e instanceof Error ? e.message : "load failed");
+      }
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [roleFilter, q]);
+
+  async function refreshUsers() {
+    const myReq = ++usersReqSeq.current;
+    try {
+      const r = await adminListUsers({ role: roleFilter, q });
+      if (myReq !== usersReqSeq.current) return;
+      setUsers(r.users ?? []);
+      setErr("");
+    } catch (e: unknown) {
+      if (myReq !== usersReqSeq.current) return;
+      setErr(e instanceof Error ? e.message : "load failed");
+    }
+  }
+
   useEffect(() => { refreshChanges(); refreshBins(); }, []);
 
   async function promote(u: UserRow) {
@@ -139,6 +173,16 @@ export default function AdminPage() {
       await refreshBins();
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "update failed");
+    } finally { setBinBusy(false); }
+  }
+
+  async function viewBinQr(b: BinRow) {
+    setBinBusy(true);
+    try {
+      const r = await adminGetBinQr(b.id);
+      setCreatedQr({ id: r.binId, label: r.label, png: r.qrPngBase64 });
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "qr fetch failed");
     } finally { setBinBusy(false); }
   }
 
@@ -415,14 +459,19 @@ export default function AdminPage() {
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {binsErr && (
+                <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12, marginBottom: 8 }}>
+                  {binsErr}
+                </div>
+              )}
               {bins.map((b) => (
                 <div
                   key={b.id}
                   style={{
                     ...surfaceDark,
                     display: "grid",
-                    gridTemplateColumns: "1fr auto auto",
-                    alignItems: "center", gap: 10,
+                    gridTemplateColumns: "1fr auto auto auto",
+                    alignItems: "center", gap: 8,
                     padding: "11px 14px",
                   }}
                 >
@@ -444,6 +493,21 @@ export default function AdminPage() {
                   >
                     {b.active ? "active" : "off"}
                   </span>
+                  <button
+                    onClick={() => viewBinQr(b)}
+                    disabled={binBusy}
+                    title="ดู QR"
+                    style={{
+                      padding: "6px 10px", borderRadius: 8,
+                      background: "transparent",
+                      border: `1px solid ${t.gold}`,
+                      color: t.gold,
+                      fontSize: 11, fontWeight: 700, fontFamily: BODY,
+                      cursor: "pointer",
+                    }}
+                  >
+                    QR
+                  </button>
                   <button
                     onClick={() => toggleBin(b)}
                     disabled={binBusy}
@@ -469,6 +533,11 @@ export default function AdminPage() {
 
         {tab === "audit" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {changesErr && (
+              <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12 }}>
+                {changesErr}
+              </div>
+            )}
             {changes.map((c) => (
               <div
                 key={c.id}

@@ -12,7 +12,7 @@ import {
   type StudentProfile,
   type SchoolGoal,
 } from "@/lib/api";
-import { RankTree } from '@/components/botty/RankTree'
+import { RankTree } from "@/components/botty/RankTree";
 
 export default function HomePage() {
   const router = useRouter();
@@ -53,7 +53,10 @@ export default function HomePage() {
   const [displayPts, setDisplayPts] = useState(0);
 
   useEffect(() => {
-    if (pts === 0) { setDisplayPts(0); return; }
+    if (pts === 0) {
+      setDisplayPts(0);
+      return;
+    }
     const duration = 900;
     const start = performance.now();
     let raf: number;
@@ -75,9 +78,10 @@ export default function HomePage() {
     100,
     ((pts - curDef.min) / (curDef.max - curDef.min)) * 100,
   );
-  const goalPct = goal && goal.targetBottles > 0
-    ? Math.min(100, (goal.currentBottles / goal.targetBottles) * 100)
-    : 0;
+  const goalPct =
+    goal && goal.targetBottles > 0
+      ? Math.min(100, (goal.currentBottles / goal.targetBottles) * 100)
+      : 0;
   const firstName = profile?.fullName?.split(" ")[0] ?? null;
 
   function getGreeting() {
@@ -158,9 +162,19 @@ export default function HomePage() {
           <div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{getGreeting()},</div>
             {loading ? (
-              <div style={{ width: 120, height: 22, borderRadius: 6, background: "rgba(255,255,255,0.2)", marginTop: 4 }} />
+              <div
+                style={{
+                  width: 120,
+                  height: 22,
+                  borderRadius: 6,
+                  background: "rgba(255,255,255,0.2)",
+                  marginTop: 4,
+                }}
+              />
             ) : (
-              <div style={{ fontSize: 19, fontWeight: 700 }}>{firstName} 👋</div>
+              <div style={{ fontSize: 19, fontWeight: 700 }}>
+                {firstName} 👋
+              </div>
             )}
           </div>
           {!loading && (profile?.streakDays ?? 0) > 0 && (
@@ -191,7 +205,15 @@ export default function HomePage() {
             คะแนนรวม
           </div>
           {loading ? (
-            <div style={{ width: 180, height: 64, borderRadius: 8, background: "rgba(255,255,255,0.2)", marginTop: 4 }} />
+            <div
+              style={{
+                width: 180,
+                height: 64,
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.2)",
+                marginTop: 4,
+              }}
+            />
           ) : (
             <div
               style={{
@@ -218,7 +240,11 @@ export default function HomePage() {
             </div>
           )}
           <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
-            {loading ? <span style={{ opacity: 0 }}>—</span> : `${profile?.totalScans ?? 0} ขวด ตลอดกาล`}
+            {loading ? (
+              <span style={{ opacity: 0 }}>—</span>
+            ) : (
+              `${profile?.totalScans ?? 0} ขวด`
+            )}
           </div>
         </div>
       </div>
@@ -237,21 +263,42 @@ export default function HomePage() {
         }}
       >
         {loading ? (
-          <div style={{ height: 100, borderRadius: 10, background: t.mint, opacity: 0.4 }} />
+          <div
+            style={{
+              height: 100,
+              borderRadius: 10,
+              background: t.mint,
+              opacity: 0.4,
+            }}
+          />
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <RankTree rank={curDef.k} size={80} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, color: t.muted, letterSpacing: 1, fontWeight: 700 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: t.muted,
+                  letterSpacing: 1,
+                  fontWeight: 700,
+                }}
+              >
                 ระดับปัจจุบัน
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: t.forest, marginTop: 2 }}>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: t.forest,
+                  marginTop: 2,
+                }}
+              >
                 {curDef.k}
               </div>
               <div style={{ fontSize: 12, color: t.moss, marginTop: 4 }}>
                 {nextDef.k !== curDef.k
                   ? `อีก ${Math.max(0, nextDef.min - pts).toLocaleString()} pts → ${nextDef.emoji} ${nextDef.k}`
-                  : '🌲 ระดับสูงสุด'}
+                  : "🌲 ระดับสูงสุด"}
               </div>
             </div>
           </div>
@@ -325,7 +372,12 @@ export default function HomePage() {
         >
           {[
             { href: "/scan", emoji: "📸", label: "สแกนขวด", bg: t.moss },
-            { href: "/leaderboard", emoji: "🏆", label: "กระดานอันดับ", bg: t.forest },
+            {
+              href: "/leaderboard",
+              emoji: "🏆",
+              label: "กระดานอันดับ",
+              bg: t.forest,
+            },
             { href: "/history", emoji: "📋", label: "ประวัติสแกน", bg: t.leaf },
             { href: "/profile", emoji: "🌱", label: "โปรไฟล์", bg: "#2A5E3F" },
           ].map(({ href, emoji, label, bg }) => (

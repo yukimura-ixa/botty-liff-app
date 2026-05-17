@@ -64,20 +64,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         if (cancelled) return;
         log(`me #1 role=${me.role}`);
 
-        if (me.role === "admin") {
-          setState("ok");
+        if (me.role !== "admin") {
+          setState("denied");
           return;
         }
+
+        // Firestore says admin, but the ID token claim may still be stale
+        // (e.g. EnsureAdminRole just promoted us during /me). Force-refresh
+        // so subsequent /v1/admin/* calls carry role=admin in claims.
         if (auth.currentUser) {
           const fresh = await auth.currentUser.getIdToken(true);
           sessionStorage.setItem("firebaseIdToken", fresh);
-          const me2 = await getMe();
-          if (cancelled) return;
-          log(`me #2 role=${me2.role}`);
-          setState(me2.role === "admin" ? "ok" : "denied");
-          return;
         }
-        setState("denied");
+        setState("ok");
       } catch (e: unknown) {
         if (cancelled) return;
         const msg = e instanceof Error ? e.message : String(e);
