@@ -5,6 +5,7 @@ import {
   adminListUsers, adminChangeRole, adminListRoleChanges,
   type UserRow, type RoleChange,
 } from "@/lib/api";
+import { SheetsExportModal } from "@/components/SheetsExportModal";
 
 export default function AdminPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -13,6 +14,7 @@ export default function AdminPage() {
   const [changes, setChanges] = useState<RoleChange[]>([]);
   const [busy, setBusy] = useState<string>("");
   const [err, setErr] = useState("");
+  const [showExport, setShowExport] = useState(false);
 
   async function refresh() {
     try {
@@ -60,6 +62,23 @@ export default function AdminPage() {
   return (
     <main style={{ minHeight: "100dvh", background: t.bone, padding: "56px 18px 24px" }}>
       <div style={{ fontSize: 17, fontWeight: 800, color: t.forest, marginBottom: 16 }}>โหมดแอดมิน</div>
+      <button
+        onClick={() => setShowExport(true)}
+        style={{
+          marginBottom: 12,
+          padding: "8px 12px",
+          borderRadius: 8,
+          background: t.forest,
+          color: "white",
+          border: "none",
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        📊 Sheets
+      </button>
 
       <section style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: t.forest, marginBottom: 8 }}>จัดการสิทธิ์ครู</div>
@@ -127,6 +146,7 @@ export default function AdminPage() {
           <div style={{ padding: 12, fontSize: 12, color: t.muted, textAlign: "center" }}>ยังไม่มีประวัติ</div>
         )}
       </section>
+      {showExport && <SheetsExportModal onClose={() => setShowExport(false)} />}
     </main>
   );
 }

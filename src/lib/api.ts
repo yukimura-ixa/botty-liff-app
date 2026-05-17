@@ -185,10 +185,22 @@ export async function getStudent(uid: string): Promise<StudentProfile & { sevenD
   }
 }
 
-export function exportToSheets(payload: { classKey?: string; from: string; to: string }) {
-  return request<{ url: string }>('/teacher/exports/sheet', {
-    method: 'POST', body: JSON.stringify(payload),
-  })
+export type SheetsExportBody = {
+  classKey?: string;
+  from: string;
+  to: string;
+  groupBy?: 'scan' | 'student' | 'class';
+  columns?: string[];
+  includeAdjustments?: boolean;
+  includeImageLinks?: boolean;
+  reuseSheet?: boolean;
+};
+
+export function exportToSheets(body: SheetsExportBody): Promise<{ url: string }> {
+  return request('/teacher/exports/sheet', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 // ── Forest ────────────────────────────────────────────────────

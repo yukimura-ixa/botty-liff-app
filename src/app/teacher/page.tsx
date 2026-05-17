@@ -5,7 +5,6 @@ import { theme as t } from "@/lib/theme";
 import {
   getTeacherKPIs,
   getStudents,
-  exportToSheets,
   getForestStages,
   updateForestStages,
   formatClassKey,
@@ -13,13 +12,14 @@ import {
   type TeacherKPIs,
 } from "@/lib/api";
 import { CLASS_KEY_OPTIONS } from "@/lib/class-options";
+import { SheetsExportModal } from "@/components/SheetsExportModal";
 
 export default function TeacherDashPage() {
   const [kpis, setKpis] = useState<TeacherKPIs | null>(null);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [q, setQ] = useState("");
   const [classKey, setClassKey] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [error, setError] = useState("");
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [forestThresholds, setForestThresholds] = useState<[number, number, number]>([25, 75, 175])
@@ -48,26 +48,6 @@ export default function TeacherDashPage() {
   useEffect(() => {
     getForestStages().then(cfg => setForestThresholds(cfg.thresholds))
   }, [])
-
-  async function handleExport() {
-    setExporting(true);
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const monthAgo = new Date(Date.now() - 30 * 86400_000)
-        .toISOString()
-        .slice(0, 10);
-      const { url } = await exportToSheets({
-        classKey: classKey || undefined,
-        from: monthAgo,
-        to: today,
-      });
-      window.open(url, "_blank");
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setExporting(false);
-    }
-  }
 
   async function handleSaveForest() {
     setForestSaving(true)
@@ -114,8 +94,7 @@ export default function TeacherDashPage() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={handleExport}
-            disabled={exporting}
+            onClick={() => setShowExport(true)}
             style={{
               padding: "8px 12px",
               borderRadius: 10,
@@ -128,7 +107,7 @@ export default function TeacherDashPage() {
               fontFamily: "inherit",
             }}
           >
-            {exporting ? "..." : "📊 Sheets"}
+            📊 Sheets
           </button>
         </div>
       </div>
@@ -481,6 +460,7 @@ export default function TeacherDashPage() {
           </button>
         </div>
       </section>
+      {showExport && <SheetsExportModal onClose={() => setShowExport(false)} />}
     </main>
   );
 }
