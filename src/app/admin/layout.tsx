@@ -14,52 +14,31 @@ function log(...args: unknown[]) {
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>("loading");
   const [error, setError] = useState("");
-  const [trace, setTrace] = useState<string[]>([]);
-
-  function push(msg: string) {
-    log(msg);
-    setTrace((t) => [...t, `${new Date().toISOString().slice(11, 19)} ${msg}`]);
-  }
 
   useEffect(() => {
     let cancelled = false;
-    push("mount");
 
     async function ensureAuth(): Promise<void> {
-      const cached = sessionStorage.getItem("firebaseIdToken");
-      push(`cached token: ${cached ? "yes" : "no"}`);
-      if (cached) return;
-
-      push("initLiff start");
+      if (sessionStorage.getItem("firebaseIdToken")) return;
       const liff = await initLiff();
-      push(`initLiff ok os=${liff.getOS()} inClient=${liff.isInClient()} loggedIn=${liff.isLoggedIn()}`);
+      log(`liff init os=${liff.getOS()} loggedIn=${liff.isLoggedIn()}`);
 
       if (liff.getOS() === "web") {
         const isMobile = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (!isMobile) {
-          throw new Error("เปิดบนมือถือผ่าน LINE");
-        }
-        push("web mobile → liff.login");
+        if (!isMobile) throw new Error("เปิดบนมือถือผ่าน LINE");
         liff.login({ redirectUri: window.location.href });
         return;
       }
       if (!liff.isLoggedIn()) {
-        push("not logged in → liff.login");
         liff.login({ redirectUri: window.location.href });
         return;
       }
 
-      push("getLineIdToken");
       const idToken = await getLineIdToken();
-      push(`idToken length=${idToken.length}`);
-
       let result;
       try {
-        push("authLine call");
         result = await authLine(idToken);
-        push(`authLine ok role=${result.role}`);
       } catch (e) {
-        push(`authLine err: ${e instanceof Error ? e.message : String(e)}`);
         if (e instanceof ApiError && e.message.includes("invalid LINE token")) {
           sessionStorage.removeItem("firebaseIdToken");
           sessionStorage.removeItem("role");
@@ -69,41 +48,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         }
         throw e;
       }
-
-      push("signInWithCustomToken");
       const cred = await signInWithCustomToken(auth, result.customToken);
       const firebaseIdToken = await cred.user.getIdToken();
       sessionStorage.setItem("firebaseIdToken", firebaseIdToken);
       sessionStorage.setItem("role", result.role);
-      push("firebase signed in");
     }
 
     async function run() {
       try {
         await ensureAuth();
         if (cancelled) return;
-        if (!sessionStorage.getItem("firebaseIdToken")) {
-          push("no token after ensureAuth — likely mid-redirect");
-          return;
-        }
+        if (!sessionStorage.getItem("firebaseIdToken")) return;
 
-        push("getMe #1");
         const me = await getMe();
         if (cancelled) return;
-        push(`me #1 role=${me.role}`);
+        log(`me #1 role=${me.role}`);
 
         if (me.role === "admin") {
           setState("ok");
           return;
         }
         if (auth.currentUser) {
-          push("refreshing firebase token");
           const fresh = await auth.currentUser.getIdToken(true);
           sessionStorage.setItem("firebaseIdToken", fresh);
-          push("getMe #2");
           const me2 = await getMe();
           if (cancelled) return;
-          push(`me #2 role=${me2.role}`);
+          log(`me #2 role=${me2.role}`);
           setState(me2.role === "admin" ? "ok" : "denied");
           return;
         }
@@ -111,20 +81,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       } catch (e: unknown) {
         if (cancelled) return;
         const msg = e instanceof Error ? e.message : String(e);
-        push(`ERROR: ${msg}`);
+        log(`ERROR ${msg}`);
         setError(msg);
         setState("error");
       }
     }
 
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   async function fullLogout() {
-    push("manual logout");
     try {
       sessionStorage.clear();
       localStorage.clear();
@@ -132,78 +99,71 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       try {
         const liff = await initLiff();
         if (liff.isLoggedIn()) await liff.logout();
-      } catch {}
+      } catch { /* ignore */ }
       location.href = "/";
-    } catch (e) {
-      push(`logout err: ${e instanceof Error ? e.message : String(e)}`);
+    } catch {
       location.href = "/";
     }
   }
 
-  const debugBox = (
-    <div
-      style={{
-        position: "fixed", bottom: 0, left: 0, right: 0,
-        maxHeight: "40dvh", overflow: "auto",
-        background: "rgba(0,0,0,0.85)", color: "#9f9",
-        fontFamily: "monospace", fontSize: 10, padding: 8, zIndex: 9999,
-      }}
-    >
-      <div style={{ color: "#ff9", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
-        <span>state={state}</span>
-        <button
-          onClick={fullLogout}
-          style={{
-            background: "#c44", color: "white", border: "none",
-            padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-          }}
-        >
-          logout
-        </button>
-      </div>
-      {trace.map((line, i) => (
-        <div key={i}>{line}</div>
-      ))}
-      {error && <div style={{ color: "#f99" }}>ERR {error}</div>}
-    </div>
-  );
-
   if (state === "loading") {
     return (
-      <>
-        <main style={{ padding: 40, textAlign: "center" }}>กำลังตรวจสอบสิทธิ์...</main>
-        {debugBox}
-      </>
+      <main style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a1612", color: "#C8E6D2" }}>
+        <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, letterSpacing: 2, opacity: 0.6 }}>
+          AUTH · CHECK
+        </div>
+      </main>
     );
   }
   if (state === "denied") {
     return (
-      <>
-        <main style={{ padding: 40, textAlign: "center" }}>ไม่มีสิทธิ์เข้าถึง</main>
-        {debugBox}
-      </>
+      <main style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", background: "#0a1612", color: "white", padding: 32 }}>
+        <div style={{ fontSize: 14, color: "#C8E6D2", textAlign: "center" }}>ไม่มีสิทธิ์เข้าถึง</div>
+        <button
+          onClick={fullLogout}
+          style={{ padding: "8px 18px", borderRadius: 999, background: "#D9A441", color: "#1A2620", fontWeight: 700, border: "none", cursor: "pointer" }}
+        >
+          ออกจากระบบ
+        </button>
+      </main>
     );
   }
   if (state === "error") {
     return (
-      <>
-        <main style={{ padding: 40, textAlign: "center" }}>
-          <div style={{ marginBottom: 12, color: "#c44" }}>{error}</div>
+      <main style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", background: "#0a1612", color: "white", padding: 32 }}>
+        <div style={{ fontSize: 13, color: "#E07856", textAlign: "center", maxWidth: 320 }}>{error}</div>
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => location.reload()}
-            style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #ccc", background: "white", cursor: "pointer", fontFamily: "inherit" }}
+            style={{ padding: "8px 18px", borderRadius: 999, background: "#1F6E4A", color: "white", fontWeight: 700, border: "none", cursor: "pointer" }}
           >
             ลองใหม่
           </button>
-        </main>
-        {debugBox}
-      </>
+          <button
+            onClick={fullLogout}
+            style={{ padding: "8px 18px", borderRadius: 999, background: "transparent", border: "1px solid #C8E6D2", color: "#C8E6D2", fontWeight: 700, cursor: "pointer" }}
+          >
+            ออกจากระบบ
+          </button>
+        </div>
+      </main>
     );
   }
   return (
     <>
       {children}
-      {debugBox}
+      <button
+        onClick={fullLogout}
+        title="logout"
+        style={{
+          position: "fixed", top: 18, right: 18, zIndex: 100,
+          width: 36, height: 36, borderRadius: 18,
+          background: "rgba(255,255,255,0.06)", border: "1px solid rgba(217,164,65,0.4)",
+          color: "#D9A441", fontSize: 14, cursor: "pointer",
+        }}
+      >
+        ⏻
+      </button>
     </>
   );
 }
