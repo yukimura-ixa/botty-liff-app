@@ -31,14 +31,16 @@ export function defaultScanColumns(): string[] {
 
 export function buildScanHeader(opts: ExportOptions): string[] {
   const base = opts.columns.length > 0 ? [...opts.columns] : defaultScanColumns();
-  if (opts.includeImageLinks && !base.includes("imageURL")) base.push("imageURL");
+  if (opts.includeImageLinks && !base.includes("imageURL") && !base.includes("imageUrl")) base.push("imageURL");
   return base;
 }
 
 function cellFor(col: string, r: ScanRow): string | number {
   switch (col) {
-    case "localDate":     return r.localDate;
-    case "capturedAt":    return r.capturedAt.toISOString();
+    case "localDate":
+    case "date":          return r.localDate;
+    case "capturedAt":
+    case "time":          return r.capturedAt.toISOString();
     case "fullName":      return r.fullName;
     case "classKey":      return r.classKey;
     case "detectedClass": return r.detectedClass;
@@ -48,7 +50,8 @@ function cellFor(col: string, r: ScanRow): string | number {
     case "totalPoints":   return r.totalPoints;
     case "confidence":    return r.confidence;
     case "streakDays":    return r.streakDays;
-    case "imageURL":      return r.imageURL || r.imagePath;
+    case "imageURL":
+    case "imageUrl":      return r.imageURL || r.imagePath;
     default:              return "";
   }
 }

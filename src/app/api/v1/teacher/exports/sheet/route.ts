@@ -7,6 +7,7 @@ import { getUser } from "@/server/user/repo";
 import { exportSheet, cacheKeyFor, getCachedSheet, setCachedSheet, type AdjustmentRow } from "@/server/teacher/sheets/exporter";
 import type { ScanRow } from "@/server/teacher/sheets/rows";
 import { bangkokDate } from "@/server/scan/time";
+import { httpsUrl } from "@/server/scan/storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -102,10 +103,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Fetch profiles for uid resolution
-  const profileMap = new Map<string, { fullName: string; streakDays: number }>();
+  const profileMap = new Map<string, { fullName: string; streakDays: number; classKey: string }>();
   for (const uid of uidSet) {
     const p = await getUser(uid);
-    if (p) profileMap.set(uid, { fullName: p.fullName, streakDays: p.streakDays });
+    if (p) profileMap.set(uid, { fullName: p.fullName, streakDays: p.streakDays, classKey: p.classKey ?? "" });
   }
 
   const rows: ScanRow[] = scanSnap.docs.map((d) => {
@@ -125,21 +126,27 @@ export async function POST(req: NextRequest) {
       totalPoints: intOf(data.totalPoints),
       confidence: floatOf(data.confidence),
       imagePath: strOf(data.imagePath),
-      imageURL: "",
+      imageURL: body.includeImageLinks && strOf(data.imagePath) ? httpsUrl(strOf(data.imagePath)) : "",
       streakDays: pi?.streakDays ?? 0,
     };
   });
 
-  const adjustments: AdjustmentRow[] = (adjSnap?.docs ?? []).map((d) => {
+  const adjustments: AdjustmentRow[] = [];
+  for (const d of adjSnap?.docs ?? []) {
     const data = d.data();
-    return {
+    const targetUid = strOf(data.targetUID);
+    if (body.classKey) {
+      const targetClass = profileMap.get(targetUid)?.classKey ?? "";
+      if (targetClass !== body.classKey) continue;
+    }
+    adjustments.push({
       createdAt: dateOf(data.createdAt),
-      targetName: profileMap.get(strOf(data.targetUID))?.fullName ?? "",
+      targetName: profileMap.get(targetUid)?.fullName ?? "",
       teacherName: profileMap.get(strOf(data.teacherUID))?.fullName ?? "",
       delta: intOf(data.delta),
       reason: strOf(data.reason),
-    };
-  });
+    });
+  }
 
   const reuse = body.reuseSheet !== false;
   const month = bangkokDate(new Date()).slice(0, 7);

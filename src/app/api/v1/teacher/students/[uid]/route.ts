@@ -19,6 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ uid:
   const { uid } = await params;
   const prof = await getUser(uid);
   if (!prof) return jsonError(404, "not found");
+  if (prof.role !== "student") return jsonError(404, "not found");
   const series = await sevenDaySeries(uid).catch(() => [] as number[]);
   return jsonOk({ profile: prof, series7: series });
 }

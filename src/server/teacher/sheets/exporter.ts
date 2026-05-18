@@ -31,6 +31,7 @@ export async function exportSheet(input: ExportInput): Promise<{ url: string; sh
     sheetId = created.id;
   } else {
     await clearSheet(sheetId, "Sheet1").catch(() => { /* ignore */ });
+    await clearSheet(sheetId, "Adjustments").catch(() => { /* ignore */ });
   }
 
   // Build main tab values

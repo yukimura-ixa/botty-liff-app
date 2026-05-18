@@ -20,6 +20,6 @@ export async function listStudents(filter: { classKey?: string; q?: string; limi
   const all = snap.docs.map((d) => ({ ...(d.data() as Profile), uid: d.id }));
   const filtered = filter.q ? all.filter((p) => containsCI(p.fullName, filter.q!) || containsCI(p.classKey, filter.q!)) : all;
   const trimmed = filtered.slice(0, filter.limit);
-  const nextCursor = filtered.length > filter.limit ? filtered[filter.limit].uid : null;
+  const nextCursor = filtered.length > filter.limit && trimmed.length > 0 ? trimmed[trimmed.length - 1].uid : null;
   return { students: trimmed, nextCursor };
 }

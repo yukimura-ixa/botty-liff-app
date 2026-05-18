@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
 import { jsonError, jsonOk } from "@/server/lib/http";
-import { adjustPoints } from "@/server/teacher/adjust";
+import { adjustPoints, AdjustError } from "@/server/teacher/adjust";
 import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
 
 export const runtime = "nodejs";
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
     bustLeaderboardCaches();
     return jsonOk({ ok: true });
   } catch (err) {
+    if (err instanceof AdjustError) return jsonError(err.status, err.message);
     console.error("adjust failed", err);
     return jsonError(500, "adjust failed");
   }
