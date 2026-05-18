@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const scope = parseScope(url.searchParams.get("scope"));
   const period = url.searchParams.get("period") ?? "week";
 
-  const cacheKey = `${scope}:${period}:${ctx.uid}`;
+  const cacheKey = `${scope}:${ctx.uid}`;
   const hit = cache.get(cacheKey);
   if (hit) return jsonOk(hit);
 
