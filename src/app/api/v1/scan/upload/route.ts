@@ -103,16 +103,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const newStreak = computeStreak(prof.streakDays ?? 0, prof.lastScanLocalDate ?? "", localDate);
-  const isFirstOfDay = prof.dailyScanDate !== localDate;
-  const newDaily = isFirstOfDay ? 1 : (prof.dailyScans ?? 0) + 1;
+  const latestProf = await getUser(ctx.uid);
+  if (!latestProf) return jsonError(404, "user_not_found");
+
+  const newStreak = computeStreak(latestProf.streakDays ?? 0, latestProf.lastScanLocalDate ?? "", localDate);
+  const isFirstOfDay = latestProf.dailyScanDate !== localDate;
+  const newDaily = isFirstOfDay ? 1 : (latestProf.dailyScans ?? 0) + 1;
   const pt = calculatePoints(DEFAULT_POINTS_CONFIG, newStreak, isFirstOfDay);
-  const newTotal = (prof.totalPoints ?? 0) + pt.total;
+  const newTotal = (latestProf.totalPoints ?? 0) + pt.total;
   const newRank = rankForPoints(newTotal);
 
   const awardArgs = {
     uid: ctx.uid,
-    classKey: prof.classKey ?? "",
+    classKey: latestProf.classKey ?? "",
     detectedClass: det.class,
     itemCount: det.itemCount,
     basePoints: pt.basePoints,
