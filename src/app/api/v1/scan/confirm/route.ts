@@ -52,30 +52,42 @@ export async function POST(req: NextRequest) {
       const ref = fs.collection(PENDING_COL).doc(body.pendingId!);
       const snap = await tx.get(ref);
       if (!snap.exists) throw ERR_PENDING_NOT_FOUND;
-      const p = snap.data() as PendingDoc & { expiresAt: { toDate?: () => Date } | Date };
+      const p = snap.data() as Omit<PendingDoc, "status"> & { status: string; expiresAt: { toDate?: () => Date } | Date; awarded?: boolean };
       if (p.uid !== ctx.uid) throw ERR_PENDING_WRONG_USER;
-      if (p.status !== PENDING_STATUS_AWAITING) throw ERR_PENDING_ALREADY_CONFIRMED;
+      const alreadyConfirmed = p.status === PENDING_STATUS_CONFIRMED;
+      if (alreadyConfirmed && p.awarded === true) throw ERR_PENDING_ALREADY_CONFIRMED;
+      if (!alreadyConfirmed && p.status !== PENDING_STATUS_AWAITING) throw ERR_PENDING_ALREADY_CONFIRMED;
       const expiresAt = "toDate" in p.expiresAt && typeof p.expiresAt.toDate === "function"
         ? p.expiresAt.toDate()
         : (p.expiresAt as Date);
-      if (Date.now() > expiresAt.getTime()) throw ERR_PENDING_EXPIRED;
+      if (!alreadyConfirmed && Date.now() > expiresAt.getTime()) throw ERR_PENDING_EXPIRED;
 
       const binSnap = await tx.get(fs.collection("bins").doc(binId));
       if (!binSnap.exists) throw new PendingError(400, "bin not found");
       const bin = binSnap.data() as { active?: boolean };
       if (!bin.active) throw new PendingError(400, "bin inactive");
 
+      const rawCaptured = p.capturedAt as unknown;
+      const capturedAt =
+        rawCaptured instanceof Date
+          ? rawCaptured
+          : (rawCaptured && typeof rawCaptured === "object" && "toDate" in rawCaptured && typeof (rawCaptured as { toDate: () => Date }).toDate === "function"
+              ? (rawCaptured as { toDate: () => Date }).toDate()
+              : new Date(rawCaptured as string));
       pendingForAward = {
         ...p,
+        status: PENDING_STATUS_AWAITING,
         expiresAt,
-        capturedAt: (p.capturedAt instanceof Date ? p.capturedAt : new Date(p.capturedAt as unknown as string)),
+        capturedAt,
       };
 
-      tx.update(ref, {
-        status: PENDING_STATUS_CONFIRMED,
-        binId,
-        confirmedAt: FieldValue.serverTimestamp(),
-      });
+      if (!alreadyConfirmed) {
+        tx.update(ref, {
+          status: PENDING_STATUS_CONFIRMED,
+          binId,
+          confirmedAt: FieldValue.serverTimestamp(),
+        });
+      }
     });
   } catch (e) {
     if (e instanceof PendingError) return jsonError(e.status, e.message);
@@ -84,7 +96,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (mode() === "enforce" && pendingForAward !== null) {
-    try { await awardFromPending(ctx.uid, pendingForAward); }
+    try { await awardFromPending(ctx.uid, pendingForAward, body.pendingId!); }
     catch (err) {
       console.error("award from pending failed", err);
       return jsonError(500, "award failed");
