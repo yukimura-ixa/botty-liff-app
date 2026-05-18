@@ -66,8 +66,8 @@ export async function listMyScans(uid: string, limit: number, cursor: string | n
   let nextCursor: string | null = null;
   let trimmed = entries;
   if (entries.length > limit) {
-    nextCursor = entries[limit].scanId;
     trimmed = entries.slice(0, limit);
+    nextCursor = trimmed[trimmed.length - 1].scanId;
   }
   return { scans: trimmed, nextCursor };
 }
