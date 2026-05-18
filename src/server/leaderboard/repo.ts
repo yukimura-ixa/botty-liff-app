@@ -28,9 +28,15 @@ export async function queryLeaderboard(scope: Scope, callerUid: string): Promise
   let q;
   if (scope === "class") {
     const { classKey } = await getCallerClassMeta(callerUid);
+    if (!classKey) {
+      return [];
+    }
     q = base.where("classKey", "==", classKey).orderBy("totalPoints", "desc").limit(100);
   } else if (scope === "grade") {
     const { classGrade } = await getCallerClassMeta(callerUid);
+    if (!classGrade) {
+      return [];
+    }
     q = base.where("classGrade", "==", classGrade).orderBy("totalPoints", "desc").limit(100);
   } else {
     q = base.orderBy("totalPoints", "desc").limit(100);
