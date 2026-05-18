@@ -4,6 +4,7 @@ import { jsonError, jsonOk } from "@/server/lib/http";
 import { TtlCache } from "@/server/leaderboard/cache";
 import { buildEntries, type BuildResult } from "@/server/leaderboard/build";
 import { queryLeaderboard, type Scope } from "@/server/leaderboard/repo";
+import { registerLeaderboardCacheBuster } from "@/server/lib/leaderboard-cache-bus";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
@@ -11,6 +12,7 @@ export const maxDuration = 10;
 type CachedResponse = BuildResult & { scope: Scope; period: string; fetchedAt: string };
 
 const cache = new TtlCache<CachedResponse>(30_000);
+registerLeaderboardCacheBuster(() => cache.bust());
 
 function parseScope(raw: string | null): Scope {
   return raw === "class" || raw === "grade" ? raw : "school";
