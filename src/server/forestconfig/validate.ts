@@ -5,7 +5,7 @@ export const DEFAULT_THRESHOLDS: [number, number, number] = [25, 75, 175];
 export function validThresholds(v: unknown): v is [number, number, number] {
   if (!Array.isArray(v)) return false;
   if (v.length !== 3) return false;
-  return v.every((n) => typeof n === "number" && !Number.isNaN(n));
+  return v.every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0);
 }
 
 export function pickConfig(raw: unknown): ForestConfig {
