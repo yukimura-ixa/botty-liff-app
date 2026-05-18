@@ -11,6 +11,7 @@ export type Profile = {
   totalScans: number;
   rank: string;
   streakDays: number;
+  lastScanAt?: Date;
   lastScanLocalDate: string;
   dailyScans: number;
   dailyScanDate: string;
