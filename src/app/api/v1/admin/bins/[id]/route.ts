@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
 import { jsonError, jsonOk } from "@/server/lib/http";
-import { patchBin } from "@/server/bin/repo";
+import { patchBin, BinError } from "@/server/bin/repo";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
@@ -23,6 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await patchBin(id, body);
     return jsonOk({ ok: true });
   } catch (err) {
+    if (err instanceof BinError) return jsonError(err.status, err.message);
     console.error("patch bin failed", err);
     return jsonError(500, "update");
   }

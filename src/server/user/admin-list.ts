@@ -25,6 +25,6 @@ export async function listAdminUsers(input: ListInput): Promise<{ users: AdminPr
   });
   const filtered = filterAndSortProfiles(raw, input.role, input.q);
   const trimmed = filtered.slice(0, input.limit);
-  const nextCursor = filtered.length > input.limit ? filtered[input.limit].uid : null;
+  const nextCursor = filtered.length > input.limit && trimmed.length > 0 ? trimmed[trimmed.length - 1].uid : null;
   return { users: trimmed, nextCursor };
 }

@@ -61,9 +61,23 @@ export async function getBin(id: string): Promise<Bin | null> {
   };
 }
 
+export class BinError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 export async function patchBin(id: string, patch: { label?: string; active?: boolean }): Promise<void> {
+  if (typeof patch.label === "string" && (patch.label.length === 0 || patch.label.length > 80)) {
+    throw new BinError(400, "label must be 1..80 chars");
+  }
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (typeof patch.label === "string") updates.label = patch.label;
   if (typeof patch.active === "boolean") updates.active = patch.active;
-  await fbFirestore().collection("bins").doc(id).update(updates);
+  const ref = fbFirestore().collection("bins").doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new BinError(404, "bin not found");
+  await ref.update(updates);
 }
