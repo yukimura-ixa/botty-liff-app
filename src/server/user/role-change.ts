@@ -12,14 +12,13 @@ export async function changeRole(
   if (newRole !== "student" && newRole !== "teacher") throw new Error("invalid");
   const fs = fbFirestore();
   const userRef = fs.collection("users").doc(targetUid);
-  const profSnap = await userRef.get();
-  if (!profSnap.exists) throw new Error("not_found");
-  const prof = profSnap.data() ?? {};
-  if (prof.role === "admin") throw new Error("demote_admin");
-
   const changeRef = fs.collection("roleChanges").doc();
-  const fromRole = typeof prof.role === "string" ? prof.role : "student";
   await fs.runTransaction(async (tx) => {
+    const profSnap = await tx.get(userRef);
+    if (!profSnap.exists) throw new Error("not_found");
+    const prof = profSnap.data() ?? {};
+    if (prof.role === "admin") throw new Error("demote_admin");
+    const fromRole = typeof prof.role === "string" ? prof.role : "student";
     tx.update(userRef, { role: newRole, updatedAt: new Date() });
     tx.set(changeRef, {
       targetUid, byUid: actorUid, fromRole, toRole: newRole, reason, createdAt: new Date(),
