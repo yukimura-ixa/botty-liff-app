@@ -2,7 +2,7 @@ import { fbFirestore } from "@/server/lib/firebase";
 import { sortByPoints, type ClassEntry } from "./sort";
 
 function intOf(v: unknown): number {
-  return typeof v === "number" ? v : 0;
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
 }
 
 export async function listClasses(): Promise<ClassEntry[]> {
