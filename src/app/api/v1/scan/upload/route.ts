@@ -9,7 +9,7 @@ import { rankForPoints } from "@/server/scan/rank";
 import { calculatePoints, DEFAULT_POINTS_CONFIG } from "@/server/scan/points";
 import { imageHash } from "@/server/scan/hash";
 import { detect, detectorConfigFromEnv } from "@/server/scan/detect";
-import { uploadScanImage, httpsUrl } from "@/server/scan/storage";
+import { uploadScanImage } from "@/server/scan/storage";
 import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
 import { createPending, hasOutstandingPending } from "@/server/scan/pending";
 import { awardScan } from "@/server/scan/award";
@@ -70,16 +70,8 @@ export async function POST(req: NextRequest) {
   const hash = imageHash(buf);
   if (await isDuplicateScan(ctx.uid, hash)) return jsonError(409, "duplicate scan");
 
-  const scanId = ulid();
-  let gcsPath: string;
-  try { gcsPath = await uploadScanImage(ctx.uid, scanId, buf); }
-  catch (err) {
-    console.error("gcs upload error", ctx.uid, err);
-    return jsonError(500, "storage");
-  }
-
   let det;
-  try { det = await detect(detectorConfigFromEnv(), httpsUrl(gcsPath)); }
+  try { det = await detect(detectorConfigFromEnv(), buf); }
   catch (err) {
     console.error("detector error", ctx.uid, err);
     return jsonError(500, "detector error");
@@ -88,6 +80,14 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
       status: 422, headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const scanId = ulid();
+  let gcsPath: string;
+  try { gcsPath = await uploadScanImage(ctx.uid, scanId, buf); }
+  catch (err) {
+    console.error("gcs upload error", ctx.uid, err);
+    return jsonError(500, "storage");
   }
   const capturedAt = new Date();
   const pendingId = ulid();

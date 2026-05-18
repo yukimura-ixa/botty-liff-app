@@ -23,12 +23,13 @@ export function classMatches(predicted: string, want: string): boolean {
   return predicted.trim().toLowerCase() === want.trim().toLowerCase();
 }
 
-export async function detect(cfg: DetectorConfig, imageURL: string): Promise<DetectResult> {
-  if (!imageURL) throw new Error("empty image URL");
+export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Array): Promise<DetectResult> {
+  if (imageBytes.length === 0) throw new Error("empty image bytes");
+  const encoded = Buffer.from(imageBytes).toString("base64");
   const body = JSON.stringify({
     api_key: cfg.apiKey,
     inputs: {
-      image: { type: "url", value: imageURL },
+      image: { type: "base64", value: encoded },
     },
   });
   const res = await fetch(cfg.url, {
