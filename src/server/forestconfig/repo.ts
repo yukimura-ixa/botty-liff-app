@@ -11,3 +11,7 @@ export async function getForestStages(): Promise<ForestConfig> {
     return pickConfig(null);
   }
 }
+
+export async function updateForestStages(thresholds: [number, number, number]): Promise<void> {
+  await fbFirestore().collection("config").doc("forestStages").set({ thresholds });
+}
