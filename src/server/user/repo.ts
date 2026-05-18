@@ -1,12 +1,37 @@
 import { fbFirestore, fbAuth } from "@/server/lib/firebase";
+import type { Timestamp } from "firebase-admin/firestore";
 import { defaultPendingProfile, classKey, type Profile } from "./helpers";
 
 const COL = "users";
 
+function dateOf(v: unknown): Date | undefined {
+  if (!v) return undefined;
+  if (v instanceof Date) return v;
+  if (typeof v === "object" && v !== null && "toDate" in v && typeof (v as Timestamp).toDate === "function") {
+    return (v as Timestamp).toDate();
+  }
+  if (typeof v === "string") {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }
+  return undefined;
+}
+
+function coerceProfile(raw: Record<string, unknown>): Profile {
+  const p = { ...raw } as Profile;
+  const createdAt = dateOf(raw.createdAt);
+  const updatedAt = dateOf(raw.updatedAt);
+  const lastScanAt = dateOf(raw.lastScanAt);
+  if (createdAt) p.createdAt = createdAt;
+  if (updatedAt) p.updatedAt = updatedAt;
+  if (lastScanAt) p.lastScanAt = lastScanAt; else delete p.lastScanAt;
+  return p;
+}
+
 export async function getUser(uid: string): Promise<Profile | null> {
   const snap = await fbFirestore().collection(COL).doc(uid).get();
   if (!snap.exists) return null;
-  return snap.data() as Profile;
+  return coerceProfile(snap.data() ?? {});
 }
 
 export async function createPending(lineUserId: string): Promise<Profile> {
