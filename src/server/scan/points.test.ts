@@ -17,6 +17,14 @@ describe("calculatePoints (default config)", () => {
     expect(calculatePoints(cfg, 11, true)).toEqual({ basePoints: 1, streakBonus: 5, total: 6 });
     expect(calculatePoints(cfg, 100, true)).toEqual({ basePoints: 1, streakBonus: 5, total: 6 });
   });
+  it("scales basePoints by itemCount", () => {
+    expect(calculatePoints(cfg, 0, false, 3)).toEqual({ basePoints: 3, streakBonus: 0, total: 3 });
+    expect(calculatePoints(cfg, 4, true, 5)).toEqual({ basePoints: 5, streakBonus: 2, total: 7 });
+  });
+  it("floors itemCount to >=1", () => {
+    expect(calculatePoints(cfg, 0, false, 0)).toEqual({ basePoints: 1, streakBonus: 0, total: 1 });
+    expect(calculatePoints(cfg, 0, false, 2.7)).toEqual({ basePoints: 2, streakBonus: 0, total: 2 });
+  });
 });
 
 describe("DEFAULT_POINTS_CONFIG", () => {

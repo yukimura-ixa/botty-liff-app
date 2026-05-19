@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
   const newStreak = computeStreak(prof.streakDays ?? 0, prof.lastScanLocalDate ?? "", localDate);
   const isFirstOfDay = prof.dailyScanDate !== localDate;
   const newDaily = isFirstOfDay ? 1 : (prof.dailyScans ?? 0) + 1;
-  const pt = calculatePoints(DEFAULT_POINTS_CONFIG, newStreak, isFirstOfDay);
+  const pt = calculatePoints(DEFAULT_POINTS_CONFIG, newStreak, isFirstOfDay, det.itemCount);
   const newTotal = (prof.totalPoints ?? 0) + pt.total;
   const newRank = rankForPoints(newTotal);
 
