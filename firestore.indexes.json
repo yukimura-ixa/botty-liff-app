@@ -1,0 +1,64 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "role", "order": "ASCENDING" },
+        { "fieldPath": "classKey", "order": "ASCENDING" },
+        { "fieldPath": "totalPoints", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "role", "order": "ASCENDING" },
+        { "fieldPath": "classGrade", "order": "ASCENDING" },
+        { "fieldPath": "totalPoints", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "role", "order": "ASCENDING" },
+        { "fieldPath": "totalPoints", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "capturedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classKey", "order": "ASCENDING" },
+        { "fieldPath": "localDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "imageHash", "order": "ASCENDING" },
+        { "fieldPath": "capturedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "localDate", "order": "ASCENDING" },
+        { "fieldPath": "classKey", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
