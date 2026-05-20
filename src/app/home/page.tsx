@@ -84,12 +84,11 @@ export default function HomePage() {
       : 0;
   const firstName = profile?.fullName?.split(" ")[0] ?? null;
 
-  function getGreeting() {
+  const [greeting, setGreeting] = useState("สวัสดี");
+  useEffect(() => {
     const h = new Date().getHours();
-    if (h < 12) return "สวัสดีตอนเช้า";
-    if (h < 17) return "สวัสดีตอนบ่าย";
-    return "สวัสดีตอนเย็น";
-  }
+    setGreeting(h < 12 ? "สวัสดีตอนเช้า" : h < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น");
+  }, []);
 
   if (error) {
     return (
@@ -160,7 +159,7 @@ export default function HomePage() {
           }}
         >
           <div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>{getGreeting()},</div>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>{greeting},</div>
             {loading ? (
               <div
                 style={{
