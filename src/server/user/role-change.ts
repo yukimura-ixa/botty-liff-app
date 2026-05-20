@@ -22,13 +22,21 @@ export async function changeRole(
     const prof = profSnap.data() ?? {};
     if (prof.role === "admin") throw new Error("demote_admin");
     const fromRole = typeof prof.role === "string" ? prof.role : "student";
-    tx.update(userRef, { role: newRole, updatedAt: new Date() });
+    const updates: Record<string, unknown> = { role: newRole, updatedAt: new Date() };
+    if (newRole === "teacher") {
+      updates.classGrade = 0;
+      updates.classRoom = 0;
+      updates.classKey = "";
+    }
+    tx.update(userRef, updates);
     tx.set(changeRef, {
       targetUid, byUid: actorUid, fromRole, toRole: newRole, reason, createdAt: new Date(),
     });
   });
 
   bust(`user:${targetUid}`);
+  bust("classes");
+  bust("leaderboard");
 
   let claimUpdateOk = false;
   try {

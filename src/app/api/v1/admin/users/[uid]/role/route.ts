@@ -20,10 +20,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   let body: { role?: string; reason?: string };
   try { body = await req.json(); }
   catch { return jsonError(400, "invalid json"); }
-  if (!body.role || !body.reason || body.reason.length > 200) return jsonError(400, "role and reason required (reason max 200)");
+  if (!body.role) return jsonError(400, "role required");
+  const reason = (body.reason ?? "").toString().trim();
+  if (reason.length > 200) return jsonError(400, "reason max 200");
 
   try {
-    const r = await changeRole(uid, ctx.uid, body.role as AssignableRole, body.reason);
+    const r = await changeRole(uid, ctx.uid, body.role as AssignableRole, reason);
     if (!r.claimUpdateOk) {
       return jsonOk({ ok: true, roleChangeId: r.roleChangeId, warning: "claim update failed; user must re-login after retry" });
     }

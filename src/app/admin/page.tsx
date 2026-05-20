@@ -79,11 +79,10 @@ export default function AdminPage() {
     }
   }
   async function decideRequest(rq: RoleRequest, approve: boolean) {
-    const reason = prompt(approve ? `อนุมัติ ${rq.requestedRole}? เหตุผล (ไม่บังคับ):` : `ปฏิเสธคำขอ? เหตุผล (ไม่บังคับ):`);
-    if (reason === null) return;
+    if (!confirm(approve ? `อนุมัติ ${rq.requestedRole}?` : `ปฏิเสธคำขอ?`)) return;
     setReqBusy(rq.id);
     try {
-      await adminDecideRoleRequest(rq.id, approve, reason || undefined);
+      await adminDecideRoleRequest(rq.id, approve);
       await refreshRequests();
       await refreshChanges();
       await refreshUsers();
@@ -128,11 +127,10 @@ export default function AdminPage() {
   async function changeRoleTo(u: UserRow, target: AssignableRole) {
     if (u.role === target) return;
     const labels: Record<AssignableRole, string> = { student: "นักเรียน", council: "สภานักเรียน", teacher: "ครู" };
-    const reason = prompt(`เปลี่ยน ${u.fullName} → ${labels[target]}? เหตุผล:`);
-    if (!reason) return;
+    if (!confirm(`เปลี่ยน ${u.fullName} → ${labels[target]}?`)) return;
     setBusy(u.uid);
     try {
-      await adminChangeRole(u.uid, target, reason);
+      await adminChangeRole(u.uid, target);
       await refreshUsers();
       await refreshChanges();
     } catch (e: unknown) {

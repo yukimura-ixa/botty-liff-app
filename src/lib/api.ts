@@ -272,7 +272,7 @@ export function adminListUsers(opts: {
   return request(`/admin/users?${p}`);
 }
 
-export function adminChangeRole(uid: string, role: AssignableRole, reason: string) {
+export function adminChangeRole(uid: string, role: AssignableRole, reason?: string) {
   return request<{ ok: boolean; roleChangeId: string; warning?: string }>(
     `/admin/users/${encodeURIComponent(uid)}/role`,
     { method: 'POST', body: JSON.stringify({ role, reason }) },
