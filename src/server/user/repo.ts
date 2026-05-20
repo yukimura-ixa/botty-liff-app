@@ -1,8 +1,17 @@
+import { cache } from "react";
 import { fbFirestore, fbAuth } from "@/server/lib/firebase";
 import type { Timestamp } from "firebase-admin/firestore";
 import { defaultPendingProfile, classKey, type Profile } from "./helpers";
+import { TtlCache } from "@/server/leaderboard/cache";
+import { registerBuster, bust } from "@/server/lib/cache-bus";
 
 const COL = "users";
+
+const userCache = new TtlCache<Profile>(60_000, 1000);
+registerBuster("user", (uid: string) => {
+  if (uid) userCache.delete(uid);
+  else userCache.bust();
+});
 
 function dateOf(v: unknown): Date | undefined {
   if (!v) return undefined;
@@ -28,11 +37,17 @@ function coerceProfile(raw: Record<string, unknown>): Profile {
   return p;
 }
 
-export async function getUser(uid: string): Promise<Profile | null> {
+async function readUserFromStore(uid: string): Promise<Profile | null> {
+  const cached = userCache.get(uid);
+  if (cached) return cached;
   const snap = await fbFirestore().collection(COL).doc(uid).get();
   if (!snap.exists) return null;
-  return coerceProfile(snap.data() ?? {});
+  const profile = coerceProfile(snap.data() ?? {});
+  userCache.set(uid, profile);
+  return profile;
 }
+
+export const getUser = cache(readUserFromStore);
 
 export async function createPending(lineUserId: string): Promise<Profile> {
   const p = defaultPendingProfile(lineUserId, new Date());
@@ -60,6 +75,7 @@ export async function onboard(uid: string, input: OnboardInput): Promise<void> {
     rank: "ต้นกล้า",
     updatedAt: new Date(),
   });
+  bust(`user:${uid}`);
 }
 
 export function isAdminSeed(uid: string): boolean {
@@ -76,4 +92,5 @@ export async function ensureAdminRole(uid: string): Promise<void> {
     updatedAt: new Date(),
   });
   await fbAuth().setCustomUserClaims(uid, { role: "admin" });
+  bust(`user:${uid}`);
 }

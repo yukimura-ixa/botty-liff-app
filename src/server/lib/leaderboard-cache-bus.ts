@@ -1,12 +1,9 @@
-const busters = new Set<() => void>();
+import { registerBuster, bust } from "./cache-bus";
 
 export function registerLeaderboardCacheBuster(fn: () => void): () => void {
-  busters.add(fn);
-  return () => busters.delete(fn);
+  return registerBuster("leaderboard", () => fn());
 }
 
 export function bustLeaderboardCaches(): void {
-  for (const fn of busters) {
-    try { fn(); } catch { /* swallow */ }
-  }
+  bust("leaderboard");
 }

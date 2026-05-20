@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
-import { jsonError, jsonOk } from "@/server/lib/http";
+import { jsonError, jsonOkCached } from "@/server/lib/http";
 import { ensureAdminRole, getUser, isAdminSeed } from "@/server/user/repo";
 
 export const runtime = "nodejs";
@@ -21,5 +21,5 @@ export async function GET(req: NextRequest) {
   }
   const prof = await getUser(ctx.uid);
   if (!prof) return jsonError(404, "not found");
-  return jsonOk(prof);
+  return jsonOkCached(prof, { maxAge: 30, swr: 120 });
 }

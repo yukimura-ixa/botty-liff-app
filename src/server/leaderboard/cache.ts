@@ -29,6 +29,10 @@ export class TtlCache<T> {
     this.store.clear();
   }
 
+  delete(key: string): void {
+    this.store.delete(key);
+  }
+
   private pruneExpired(): void {
     const now = Date.now();
     let scanned = 0;

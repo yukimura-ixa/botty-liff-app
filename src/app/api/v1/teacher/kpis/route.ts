@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
-import { jsonError, jsonOk } from "@/server/lib/http";
+import { jsonError, jsonOkCached } from "@/server/lib/http";
 import { getKPIs } from "@/server/teacher/kpis";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (!hasRole(ctx, "teacher")) return jsonError(403, "forbidden");
   try {
     const kpis = await getKPIs();
-    return jsonOk(kpis);
+    return jsonOkCached(kpis, { maxAge: 30, swr: 120 });
   } catch (err) {
     console.error("kpis failed", err);
     return jsonError(500, "kpi query");

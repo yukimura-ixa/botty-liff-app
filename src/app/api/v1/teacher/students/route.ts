@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
-import { jsonError, jsonOk } from "@/server/lib/http";
+import { jsonError, jsonOkCached } from "@/server/lib/http";
 import { listStudents } from "@/server/user/list";
 
 export const runtime = "nodejs";
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       limit,
       cursor: url.searchParams.get("cursor") ?? undefined,
     });
-    return jsonOk(r);
+    return jsonOkCached(r, { maxAge: 30, swr: 120 });
   } catch (err) {
     console.error("students list failed", err);
     return jsonError(500, "list");

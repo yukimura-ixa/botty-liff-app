@@ -2,6 +2,7 @@ import { fbFirestore } from "@/server/lib/firebase";
 import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { buildScanDoc, type ScanDocInput, type PendingDoc } from "./build";
 import { PENDING_COL } from "./pending";
+import { bust } from "@/server/lib/cache-bus";
 
 type AwardFromScanInput = ScanDocInput & {
   scanId: string;
@@ -38,6 +39,8 @@ export async function awardScan(i: AwardFromScanInput): Promise<void> {
       currentBottles: FieldValue.increment(1),
     }, { merge: true });
   });
+  bust(`user:${i.uid}`);
+  bust("classes");
 }
 
 export async function awardFromPending(uid: string, p: PendingDoc, pendingId: string): Promise<void> {
@@ -89,4 +92,6 @@ export async function awardFromPending(uid: string, p: PendingDoc, pendingId: st
     }, { merge: true });
     tx.update(pendingRef, { awarded: true, awardedAt: FieldValue.serverTimestamp() });
   });
+  bust(`user:${uid}`);
+  bust("classes");
 }

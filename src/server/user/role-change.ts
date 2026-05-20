@@ -1,4 +1,5 @@
 import { fbFirestore, fbAuth } from "@/server/lib/firebase";
+import { bust } from "@/server/lib/cache-bus";
 
 export type RoleChangeError = "self" | "invalid" | "not_found" | "demote_admin";
 
@@ -26,6 +27,8 @@ export async function changeRole(
       targetUid, byUid: actorUid, fromRole, toRole: newRole, reason, createdAt: new Date(),
     });
   });
+
+  bust(`user:${targetUid}`);
 
   let claimUpdateOk = false;
   try {

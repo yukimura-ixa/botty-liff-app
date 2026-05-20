@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
-import { jsonError, jsonOk } from "@/server/lib/http";
+import { jsonError, jsonOkCached } from "@/server/lib/http";
 import { TtlCache } from "@/server/leaderboard/cache";
 import { buildEntries, type BuildResult } from "@/server/leaderboard/build";
 import { queryLeaderboard, type Scope } from "@/server/leaderboard/repo";
@@ -32,14 +32,14 @@ export async function GET(req: NextRequest) {
 
   const cacheKey = `${scope}:${ctx.uid}`;
   const hit = cache.get(cacheKey);
-  if (hit) return jsonOk(hit);
+  if (hit) return jsonOkCached(hit, { maxAge: 30, swr: 60 });
 
   try {
     const rows = await queryLeaderboard(scope, ctx.uid);
     const built = buildEntries(rows, ctx.uid);
     const body: CachedResponse = { ...built, scope, period, fetchedAt: new Date().toISOString() };
     cache.set(cacheKey, body);
-    return jsonOk(body);
+    return jsonOkCached(body, { maxAge: 30, swr: 60 });
   } catch (err) {
     console.error("leaderboard query failed", scope, err);
     return jsonError(500, "leaderboard query");

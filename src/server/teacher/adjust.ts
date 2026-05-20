@@ -1,6 +1,7 @@
 import { fbFirestore } from "@/server/lib/firebase";
 import { FieldValue } from "firebase-admin/firestore";
 import { rankForPoints } from "@/server/scan/rank";
+import { bust } from "@/server/lib/cache-bus";
 
 export class AdjustError extends Error {
   status: number;
@@ -34,4 +35,5 @@ export async function adjustPoints(targetUid: string, teacherUid: string, delta:
       createdAt: new Date(),
     });
   });
+  bust(`user:${targetUid}`);
 }
