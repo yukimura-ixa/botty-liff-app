@@ -3,7 +3,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { fbFirestore } from "@/server/lib/firebase";
-import { verifyBinToken } from "@/server/scan/bin-token";
+import { verifySlotToken } from "@/server/approver/token";
+import { claimSlot } from "@/server/approver/repo";
 import { awardFromPending } from "@/server/scan/award";
 import {
   PENDING_COL, PENDING_STATUS_AWAITING, PENDING_STATUS_CONFIRMED,
@@ -17,8 +18,9 @@ export const maxDuration = 15;
 
 type Mode = "off" | "log" | "enforce";
 function mode(): Mode {
-  const m = (process.env.BIN_CONFIRM_MODE ?? "log") as Mode;
-  return m === "off" || m === "enforce" ? m : "log";
+  // Default switched to enforce: students earn points only after staff QR scan.
+  const m = (process.env.BIN_CONFIRM_MODE ?? "enforce") as Mode;
+  return m === "off" || m === "log" ? m : "enforce";
 }
 
 export async function POST(req: NextRequest) {
@@ -33,17 +35,35 @@ export async function POST(req: NextRequest) {
     return jsonError(500, "auth");
   }
 
-  let body: { pendingId?: string; binToken?: string };
+  let body: { pendingId?: string; approverToken?: string };
   try { body = await req.json(); }
   catch { return jsonError(400, "invalid json"); }
-  if (!body.pendingId || !body.binToken) return jsonError(400, "pendingId and binToken required");
+  if (!body.pendingId || !body.approverToken) return jsonError(400, "pendingId and approverToken required");
 
-  const secret = Buffer.from(process.env.BIN_HMAC_SECRET ?? "");
+  const secret = Buffer.from(process.env.STAFF_QR_SECRET ?? "");
   if (secret.length < 16) return jsonError(500, "server misconfigured");
 
-  let binId: string;
-  try { binId = verifyBinToken(secret, body.binToken); }
-  catch { return jsonError(400, "invalid bin token"); }
+  let claims;
+  try { claims = verifySlotToken(secret, body.approverToken); }
+  catch { return jsonError(400, "invalid approver token"); }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (nowSec < claims.validFrom) return jsonError(400, "approver token not yet valid");
+  if (nowSec > claims.validUntil) return jsonError(400, "approver token expired");
+
+  let staffUid: string;
+  try {
+    const r = await claimSlot(claims.sessionId, claims.slot, ctx.uid, body.pendingId);
+    staffUid = r.staffUid;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "claim failed";
+    if (msg === "session_not_found") return jsonError(400, "approver session not found");
+    if (msg === "session_ended") return jsonError(400, "approver session ended");
+    if (msg === "session_expired") return jsonError(400, "approver session expired");
+    if (msg === "slot_used") return jsonError(409, "QR ถูกใช้ไปแล้ว ขอ QR ใหม่จากเจ้าหน้าที่");
+    console.error("claim slot failed", e);
+    return jsonError(500, "claim failed");
+  }
 
   const fs = fbFirestore();
   let pendingForAward: PendingDoc | null = null;
@@ -62,11 +82,6 @@ export async function POST(req: NextRequest) {
         : (p.expiresAt as Date);
       if (!alreadyConfirmed && Date.now() > expiresAt.getTime()) throw ERR_PENDING_EXPIRED;
 
-      const binSnap = await tx.get(fs.collection("bins").doc(binId));
-      if (!binSnap.exists) throw new PendingError(400, "bin not found");
-      const bin = binSnap.data() as { active?: boolean };
-      if (!bin.active) throw new PendingError(400, "bin inactive");
-
       const rawCaptured = p.capturedAt as unknown;
       const capturedAt =
         rawCaptured instanceof Date
@@ -84,7 +99,9 @@ export async function POST(req: NextRequest) {
       if (!alreadyConfirmed) {
         tx.update(ref, {
           status: PENDING_STATUS_CONFIRMED,
-          binId,
+          approverUid: staffUid,
+          approverSessionId: claims.sessionId,
+          approverSlot: claims.slot,
           confirmedAt: FieldValue.serverTimestamp(),
         });
       }
@@ -103,5 +120,5 @@ export async function POST(req: NextRequest) {
     }
     bustLeaderboardCaches();
   }
-  return jsonOk({ ok: true, binId });
+  return jsonOk({ ok: true, approverUid: staffUid, sessionId: claims.sessionId });
 }

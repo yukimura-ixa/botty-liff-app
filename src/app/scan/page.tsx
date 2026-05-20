@@ -17,9 +17,9 @@ export default function ScanPage() {
   const [error, setError] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(0);
-  const [binPrompt, setBinPrompt] = useState<{ pendingId: string; expiresAt: number } | null>(null);
-  const [binPromptStatus, setBinPromptStatus] = useState<"idle" | "scanning" | "confirmed" | "expired" | "failed">("idle");
-  const [binPromptCountdown, setBinPromptCountdown] = useState(0);
+  const [approverPrompt, setApproverPrompt] = useState<{ pendingId: string; expiresAt: number } | null>(null);
+  const [approverStatus, setApproverStatus] = useState<"idle" | "scanning" | "confirmed" | "expired" | "failed">("idle");
+  const [approverCountdown, setApproverCountdown] = useState(0);
 
   useEffect(() => {
     if (state !== "cooldown" || retryAfter <= 0) return;
@@ -36,14 +36,14 @@ export default function ScanPage() {
   }, [state, retryAfter]);
 
   useEffect(() => {
-    if (!binPrompt || binPromptStatus === "confirmed" || binPromptStatus === "expired") return;
+    if (!approverPrompt || approverStatus === "confirmed" || approverStatus === "expired") return;
     const id = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((binPrompt.expiresAt - Date.now()) / 1000));
-      setBinPromptCountdown(remaining);
-      if (remaining === 0) setBinPromptStatus("expired");
+      const remaining = Math.max(0, Math.ceil((approverPrompt.expiresAt - Date.now()) / 1000));
+      setApproverCountdown(remaining);
+      if (remaining === 0) setApproverStatus("expired");
     }, 500);
     return () => clearInterval(id);
-  }, [binPrompt, binPromptStatus]);
+  }, [approverPrompt, approverStatus]);
 
   // Set srcObject after video element mounts (stream state change triggers re-render first)
   useEffect(() => {
@@ -87,9 +87,9 @@ export default function ScanPage() {
           setResult(res);
           setState("result");
           if (res.pendingId && res.expiresInSec) {
-            setBinPrompt({ pendingId: res.pendingId, expiresAt: Date.now() + res.expiresInSec * 1000 });
-            setBinPromptStatus("idle");
-            setBinPromptCountdown(res.expiresInSec);
+            setApproverPrompt({ pendingId: res.pendingId, expiresAt: Date.now() + res.expiresInSec * 1000 });
+            setApproverStatus("idle");
+            setApproverCountdown(res.expiresInSec);
           }
         } catch (e: unknown) {
           if (e instanceof ApiError) {
@@ -123,20 +123,20 @@ export default function ScanPage() {
     );
   }, [stream]);
 
-  async function handleScanBin() {
-    if (!binPrompt) return;
-    setBinPromptStatus("scanning");
+  async function handleScanApprover() {
+    if (!approverPrompt) return;
+    setApproverStatus("scanning");
     try {
       const token = await scanQrCode();
       if (!token) {
-        setBinPromptStatus("idle");
+        setApproverStatus("idle");
         alert("ไม่สามารถเปิดสแกนเนอร์ QR ได้");
         return;
       }
-      await confirmScan(binPrompt.pendingId, token);
-      setBinPromptStatus("confirmed");
+      await confirmScan(approverPrompt.pendingId, token);
+      setApproverStatus("confirmed");
     } catch (e: unknown) {
-      setBinPromptStatus("failed");
+      setApproverStatus("failed");
       const msg = e instanceof Error ? e.message : "ยืนยันไม่สำเร็จ";
       alert(msg);
     }
@@ -217,108 +217,114 @@ export default function ScanPage() {
           gap: 12,
         }}
       >
-        <div style={{ fontSize: 20, fontWeight: 800 }}>สแกนสำเร็จ! 🎉</div>
-        <div
-          style={{
-            width: 130,
-            height: 130,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.12)",
-            border: "2px solid rgba(255,255,255,0.25)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 56,
-          }}
-        >
-          ♻️
-        </div>
-        <div
-          style={{
-            display: "flex",
-            gap: 6,
-            flexWrap: "wrap",
-            justifyContent: "center",
-          }}
-        >
-          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
-            {result.detectedClass || "PET Bottle"}
-          </span>
-          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
-            {(result.confidence * 100).toFixed(0)}% มั่นใจ
-          </span>
-          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
-            {result.itemCount} ชิ้น
-          </span>
-        </div>
-        <div
-          style={{
-            fontSize: 72,
-            fontWeight: 900,
-            color: t.gold,
-            lineHeight: 1,
-          }}
-        >
-          +{result.totalPoints}
-        </div>
-        <div style={{ fontSize: 14, opacity: 0.9, fontWeight: 600 }}>
-          คะแนนที่ได้รับ
-        </div>
-        <div
-          style={{
-            background: "rgba(255,255,255,0.1)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            borderRadius: 14,
-            padding: "12px 16px",
-            width: "100%",
-            fontSize: 12,
-          }}
-        >
-          {[
-            ["ขวด PET พื้นฐาน", `+${result.basePoints}`],
-            [`โบนัสสตรีค`, `+${result.streakBonus}`],
-          ].map(([k, v], i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "4px 0",
-                borderBottom:
-                  i === 0 ? "1px dashed rgba(255,255,255,0.2)" : "none",
-              }}
-            >
-              <span style={{ opacity: 0.85 }}>{k}</span>
-              <span style={{ fontWeight: 700, color: t.gold }}>{v}</span>
+        {(() => {
+          const awarded = approverStatus === "confirmed" || !approverPrompt;
+          return (
+            <>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>
+                {awarded ? "สแกนสำเร็จ! 🎉" : "ตรวจพบขวด PET"}
+              </div>
+              <div
+                style={{
+                  width: 130, height: 130, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.12)",
+                  border: "2px solid rgba(255,255,255,0.25)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 56,
+                }}
+              >
+                {approverStatus === "expired" ? "⏱️" : awarded ? "♻️" : "🔒"}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+                <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+                  {result.detectedClass || "PET Bottle"}
+                </span>
+                <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+                  {(result.confidence * 100).toFixed(0)}% มั่นใจ
+                </span>
+                <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+                  {result.itemCount} ชิ้น
+                </span>
+              </div>
+              {awarded ? (
+                <>
+                  <div style={{ fontSize: 72, fontWeight: 900, color: t.gold, lineHeight: 1 }}>
+                    +{result.totalPoints}
+                  </div>
+                  <div style={{ fontSize: 14, opacity: 0.9, fontWeight: 600 }}>
+                    คะแนนที่ได้รับ
+                  </div>
+                  <div
+                    style={{
+                      background: "rgba(255,255,255,0.1)",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      borderRadius: 14, padding: "12px 16px", width: "100%", fontSize: 12,
+                    }}
+                  >
+                    {[
+                      ["ขวด PET พื้นฐาน", `+${result.basePoints}`],
+                      ["โบนัสสตรีค", `+${result.streakBonus}`],
+                    ].map(([k, v], i) => (
+                      <div key={i} style={{
+                        display: "flex", justifyContent: "space-between", padding: "4px 0",
+                        borderBottom: i === 0 ? "1px dashed rgba(255,255,255,0.2)" : "none",
+                      }}>
+                        <span style={{ opacity: 0.85 }}>{k}</span>
+                        <span style={{ fontWeight: 700, color: t.gold }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : approverStatus === "expired" ? (
+                <>
+                  <div style={{ fontSize: 48, fontWeight: 900, color: "rgba(255,255,255,0.5)", lineHeight: 1 }}>
+                    +0
+                  </div>
+                  <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
+                    ไม่ได้รับคะแนน — สแกน QR เจ้าหน้าที่ไม่ทัน
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 48, fontWeight: 900, color: "rgba(255,255,255,0.45)", lineHeight: 1 }}>
+                    🔒 +?
+                  </div>
+                  <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
+                    สแกน QR เจ้าหน้าที่เพื่อรับคะแนน
+                  </div>
+                </>
+              )}
+            </>
+          );
+        })()}
+        {/* Rank tree — only after approval */}
+        {approverStatus === "confirmed" && (
+          <div style={{ textAlign: 'center', paddingTop: 8 }}>
+            {result.newRank !== result.prevRank && (
+              <div style={{
+                fontSize: 13, fontWeight: 700, color: t.gold, marginBottom: 8,
+                animation: 'rankBadgePop 0.4s ease-out',
+              }}>
+                🎊 เลื่อนระดับแล้ว!
+              </div>
+            )}
+            <RankTree
+              rank={result.newRank || 'ต้นกล้า'}
+              animate={result.newRank !== result.prevRank}
+              size={80}
+            />
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>
+              {result.newRank || 'ต้นกล้า'}
             </div>
-          ))}
-        </div>
-        {/* Rank tree */}
-        <div style={{ textAlign: 'center', paddingTop: 8 }}>
-          {result.newRank !== result.prevRank && (
-            <div style={{
-              fontSize: 13, fontWeight: 700, color: t.gold, marginBottom: 8,
-              animation: 'rankBadgePop 0.4s ease-out',
-            }}>
-              🎊 เลื่อนระดับแล้ว!
-            </div>
-          )}
-          <RankTree
-            rank={result.newRank || 'ต้นกล้า'}
-            animate={result.newRank !== result.prevRank}
-            size={80}
-          />
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>
-            {result.newRank || 'ต้นกล้า'}
+            <style>{`
+              @keyframes rankBadgePop {
+                from { transform: scale(0.5); opacity: 0; }
+                to   { transform: scale(1);   opacity: 1; }
+              }
+            `}</style>
           </div>
-          <style>{`
-            @keyframes rankBadgePop {
-              from { transform: scale(0.5); opacity: 0; }
-              to   { transform: scale(1);   opacity: 1; }
-            }
-          `}</style>
-        </div>
-        {binPrompt && binPromptStatus !== "confirmed" && binPromptStatus !== "expired" && (
+        )}
+        {approverPrompt && approverStatus !== "confirmed" && approverStatus !== "expired" && (
           <div style={{
             background: "rgba(255,255,255,0.15)",
             border: "1px solid rgba(255,255,255,0.3)",
@@ -329,13 +335,13 @@ export default function ScanPage() {
             maxWidth: 360,
             textAlign: "center",
           }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>เดินไปทิ้งที่ถัง</div>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>หาเจ้าหน้าที่</div>
             <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 12 }}>
-              สแกน QR ที่ถังภายใน {binPromptCountdown} วินาที
+              สแกน QR ของเจ้าหน้าที่ภายใน {approverCountdown} วินาที
             </div>
             <button
-              onClick={handleScanBin}
-              disabled={binPromptStatus === "scanning"}
+              onClick={handleScanApprover}
+              disabled={approverStatus === "scanning"}
               style={{
                 background: "white",
                 color: t.forest,
@@ -348,11 +354,11 @@ export default function ScanPage() {
                 fontFamily: "inherit",
               }}
             >
-              {binPromptStatus === "scanning" ? "กำลังเปิดสแกนเนอร์..." : "📷 สแกน QR ที่ถัง"}
+              {approverStatus === "scanning" ? "กำลังเปิดสแกนเนอร์..." : "📷 สแกน QR เจ้าหน้าที่"}
             </button>
           </div>
         )}
-        {binPromptStatus === "confirmed" && (
+        {approverStatus === "confirmed" && (
           <div style={{
             background: "rgba(255,255,255,0.2)",
             borderRadius: 12,
@@ -362,10 +368,10 @@ export default function ScanPage() {
             fontWeight: 700,
             textAlign: "center",
           }}>
-            ✓ ยืนยันการทิ้งแล้ว
+            ✓ ยืนยันโดยเจ้าหน้าที่
           </div>
         )}
-        {binPromptStatus === "expired" && (
+        {approverStatus === "expired" && (
           <div style={{
             background: "rgba(255,200,0,0.18)",
             borderRadius: 12,
@@ -374,7 +380,7 @@ export default function ScanPage() {
             fontSize: 12,
             textAlign: "center",
           }}>
-            หมดเวลา (คะแนนคงเดิม)
+            หมดเวลา · ไม่ได้รับคะแนน
           </div>
         )}
         <div style={{ flex: 1 }} />

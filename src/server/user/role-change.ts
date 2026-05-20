@@ -2,14 +2,16 @@ import { fbFirestore, fbAuth } from "@/server/lib/firebase";
 
 export type RoleChangeError = "self" | "invalid" | "not_found" | "demote_admin";
 
+export type AssignableRole = "student" | "council" | "teacher";
+
 export async function changeRole(
   targetUid: string,
   actorUid: string,
-  newRole: "student" | "teacher",
+  newRole: AssignableRole,
   reason: string,
 ): Promise<{ roleChangeId: string; claimUpdateOk: boolean }> {
   if (targetUid === actorUid) throw new Error("self");
-  if (newRole !== "student" && newRole !== "teacher") throw new Error("invalid");
+  if (newRole !== "student" && newRole !== "council" && newRole !== "teacher") throw new Error("invalid");
   const fs = fbFirestore();
   const userRef = fs.collection("users").doc(targetUid);
   const changeRef = fs.collection("roleChanges").doc();

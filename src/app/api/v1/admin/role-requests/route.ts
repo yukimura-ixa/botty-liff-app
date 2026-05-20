@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
 import { jsonError, jsonOk } from "@/server/lib/http";
-import { patchBin, BinError } from "@/server/bin/repo";
+import { listPendingRoleRequests } from "@/server/roleRequests/repo";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest) {
   let ctx;
   try { ctx = await verifyBearerToken(req); }
   catch (e) {
@@ -15,16 +15,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return jsonError(500, "auth");
   }
   if (!hasRole(ctx, "admin")) return jsonError(403, "forbidden");
-  const { id } = await params;
-  let body: { label?: string; active?: boolean };
-  try { body = await req.json(); }
-  catch { return jsonError(400, "invalid json"); }
+
   try {
-    await patchBin(id, body);
-    return jsonOk({ ok: true });
+    const requests = await listPendingRoleRequests();
+    return jsonOk({ requests });
   } catch (err) {
-    if (err instanceof BinError) return jsonError(err.status, err.message);
-    console.error("patch bin failed", err);
-    return jsonError(500, "update");
+    console.error("role-requests list failed", err);
+    return jsonError(500, "failed");
   }
 }

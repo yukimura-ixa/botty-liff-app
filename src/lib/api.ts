@@ -122,10 +122,10 @@ export function uploadScan(image: File, clientConfidence?: number) {
   })
 }
 
-export function confirmScan(pendingId: string, binToken: string) {
-  return request<{ ok: boolean; binId: string }>('/scan/confirm', {
+export function confirmScan(pendingId: string, approverToken: string) {
+  return request<{ ok: boolean; approverUid: string; sessionId: string }>('/scan/confirm', {
     method: 'POST',
-    body: JSON.stringify({ pendingId, binToken }),
+    body: JSON.stringify({ pendingId, approverToken }),
   })
 }
 
@@ -240,11 +240,14 @@ export function updateForestStages(thresholds: [number, number, number]) {
 }
 
 // ── Admin ─────────────────────────────────────────────────────
+export type UserRole = 'student' | 'council' | 'teacher' | 'admin';
+export type AssignableRole = 'student' | 'council' | 'teacher';
+
 export type UserRow = {
   uid: string;
   fullName: string;
   classKey: string;
-  role: 'student' | 'teacher' | 'admin';
+  role: UserRole;
   totalPoints: number;
 };
 
@@ -269,7 +272,7 @@ export function adminListUsers(opts: {
   return request(`/admin/users?${p}`);
 }
 
-export function adminChangeRole(uid: string, role: 'student' | 'teacher', reason: string) {
+export function adminChangeRole(uid: string, role: AssignableRole, reason: string) {
   return request<{ ok: boolean; roleChangeId: string; warning?: string }>(
     `/admin/users/${encodeURIComponent(uid)}/role`,
     { method: 'POST', body: JSON.stringify({ role, reason }) },
@@ -282,28 +285,62 @@ export function adminListRoleChanges(targetUid?: string): Promise<{ changes: Rol
   return request(`/admin/role-changes?${p}`);
 }
 
-// ── Admin / Bins ──────────────────────────────────────────────
-export type BinRow = {
-  id: string;
-  label: string;
-  active: boolean;
-  createdAt: string;
-};
-
-export function adminListBins(active?: boolean): Promise<{ bins: BinRow[] }> {
-  const p = new URLSearchParams();
-  if (active !== undefined) p.set('active', String(active));
-  return request(`/admin/bins?${p}`);
+// ── Approver Sessions ─────────────────────────────────────────
+export type ApproverSlotToken = {
+  slot: number
+  token: string
+  validFrom: number
+  validUntil: number
 }
 
-export function adminCreateBin(label: string): Promise<{ binId: string; label: string; qrPngBase64: string }> {
-  return request('/admin/bins', { method: 'POST', body: JSON.stringify({ label }) });
+export type ApproverSessionResponse = {
+  sessionId: string
+  startedAt: string
+  expiresAt: string
+  tokens: ApproverSlotToken[]
 }
 
-export function adminPatchBin(id: string, body: { label?: string; active?: boolean }) {
-  return request<{ ok: boolean }>(`/admin/bins/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+export function openApproverSession() {
+  return request<ApproverSessionResponse>('/approver/sessions', { method: 'POST' })
 }
 
-export function adminGetBinQr(id: string): Promise<{ binId: string; label: string; qrPngBase64: string }> {
-  return request(`/admin/bins/${encodeURIComponent(id)}/qr`);
+export function endApproverSession(id: string) {
+  return request<{ ok: boolean }>(`/approver/sessions/${encodeURIComponent(id)}/end`, { method: 'POST' })
 }
+
+// ── Role Requests ─────────────────────────────────────────────
+export type RoleRequestStatus = 'pending' | 'approved' | 'denied'
+export type RoleRequest = {
+  id: string
+  uid: string
+  requestedRole: 'council' | 'teacher'
+  reason: string
+  status: RoleRequestStatus
+  createdAt: string
+  decidedBy?: string
+  decidedAt?: string
+  decidedReason?: string
+}
+
+export function getMyRoleRequest() {
+  return request<{ request: RoleRequest | null }>('/me/role-requests')
+}
+
+export function createRoleRequest(requestedRole: 'council' | 'teacher', reason: string) {
+  return request<{ id: string }>('/me/role-requests', {
+    method: 'POST',
+    body: JSON.stringify({ requestedRole, reason }),
+  })
+}
+
+export function adminListRoleRequests() {
+  return request<{ requests: RoleRequest[] }>('/admin/role-requests')
+}
+
+export function adminDecideRoleRequest(id: string, approve: boolean, reason?: string) {
+  return request<{ ok: boolean }>(`/admin/role-requests/${encodeURIComponent(id)}/decide`, {
+    method: 'POST',
+    body: JSON.stringify({ approve, reason }),
+  })
+}
+

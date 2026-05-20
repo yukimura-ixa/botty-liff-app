@@ -3,21 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { theme as t } from "@/lib/theme";
 import {
   adminListUsers, adminChangeRole, adminListRoleChanges,
-  adminListBins, adminCreateBin, adminPatchBin, adminGetBinQr,
-  type UserRow, type RoleChange, type BinRow,
+  adminListRoleRequests, adminDecideRoleRequest,
+  type UserRow, type RoleChange, type AssignableRole, type RoleRequest,
 } from "@/lib/api";
 
 const KANIT = "var(--font-kanit), system-ui";
 const BODY = "var(--font-ibm-plex-thai), system-ui";
 const MONO = "ui-monospace, 'SF Mono', Menlo, monospace";
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 10,
-  letterSpacing: 1.8,
-  textTransform: "uppercase",
-  color: t.muted,
-  fontWeight: 600,
-};
 
 const surfaceDark: React.CSSProperties = {
   background: t.ink,
@@ -25,18 +17,13 @@ const surfaceDark: React.CSSProperties = {
   borderRadius: 14,
 };
 
-const surface: React.CSSProperties = {
-  background: "white",
-  border: `1px solid ${t.mint}`,
-  borderRadius: 14,
-};
-
-type Tab = "users" | "bins" | "audit";
+type Tab = "users" | "requests" | "audit";
 
 function roleChip(role: string) {
   const map: Record<string, { bg: string; fg: string }> = {
     admin: { bg: t.gold, fg: t.ink },
     teacher: { bg: t.moss, fg: "white" },
+    council: { bg: t.forest, fg: "white" },
     student: { bg: `${t.mint}cc`, fg: t.forest },
   };
   const c = map[role] ?? map.student;
@@ -65,11 +52,9 @@ export default function AdminPage() {
   const [changes, setChanges] = useState<RoleChange[]>([]);
   const [changesErr, setChangesErr] = useState("");
 
-  const [bins, setBins] = useState<BinRow[]>([]);
-  const [newLabel, setNewLabel] = useState("");
-  const [createdQr, setCreatedQr] = useState<{ id: string; label: string; png: string } | null>(null);
-  const [binBusy, setBinBusy] = useState(false);
-  const [binsErr, setBinsErr] = useState("");
+  const [requests, setRequests] = useState<RoleRequest[]>([]);
+  const [requestsErr, setRequestsErr] = useState("");
+  const [reqBusy, setReqBusy] = useState("");
 
   // monotonically increasing token, used to discard stale responses when the
   // user types fast and earlier requests resolve after later ones.
@@ -84,14 +69,27 @@ export default function AdminPage() {
       setChangesErr(e instanceof Error ? e.message : "load failed");
     }
   }
-  async function refreshBins() {
+  async function refreshRequests() {
     try {
-      const r = await adminListBins();
-      setBins(r.bins ?? []);
-      setBinsErr("");
+      const r = await adminListRoleRequests();
+      setRequests(r.requests ?? []);
+      setRequestsErr("");
     } catch (e: unknown) {
-      setBinsErr(e instanceof Error ? e.message : "load failed");
+      setRequestsErr(e instanceof Error ? e.message : "load failed");
     }
+  }
+  async function decideRequest(rq: RoleRequest, approve: boolean) {
+    const reason = prompt(approve ? `อนุมัติ ${rq.requestedRole}? เหตุผล (ไม่บังคับ):` : `ปฏิเสธคำขอ? เหตุผล (ไม่บังคับ):`);
+    if (reason === null) return;
+    setReqBusy(rq.id);
+    try {
+      await adminDecideRoleRequest(rq.id, approve, reason || undefined);
+      await refreshRequests();
+      await refreshChanges();
+      await refreshUsers();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "failed");
+    } finally { setReqBusy(""); }
   }
 
   useEffect(() => {
@@ -125,65 +123,21 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => { refreshChanges(); refreshBins(); }, []);
+  useEffect(() => { refreshChanges(); refreshRequests(); }, []);
 
-  async function promote(u: UserRow) {
-    const reason = prompt(`เลื่อน ${u.fullName} เป็นครู? เหตุผล:`);
+  async function changeRoleTo(u: UserRow, target: AssignableRole) {
+    if (u.role === target) return;
+    const labels: Record<AssignableRole, string> = { student: "นักเรียน", council: "สภานักเรียน", teacher: "ครู" };
+    const reason = prompt(`เปลี่ยน ${u.fullName} → ${labels[target]}? เหตุผล:`);
     if (!reason) return;
     setBusy(u.uid);
     try {
-      await adminChangeRole(u.uid, "teacher", reason);
+      await adminChangeRole(u.uid, target, reason);
       await refreshUsers();
       await refreshChanges();
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "failed");
     } finally { setBusy(""); }
-  }
-
-  async function demote(u: UserRow) {
-    const reason = prompt(`ถอด ${u.fullName} กลับเป็นนักเรียน? เหตุผล:`);
-    if (!reason) return;
-    setBusy(u.uid);
-    try {
-      await adminChangeRole(u.uid, "student", reason);
-      await refreshUsers();
-      await refreshChanges();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "failed");
-    } finally { setBusy(""); }
-  }
-
-  async function createBin() {
-    if (!newLabel.trim() || binBusy) return;
-    setBinBusy(true);
-    try {
-      const r = await adminCreateBin(newLabel.trim());
-      setCreatedQr({ id: r.binId, label: r.label, png: r.qrPngBase64 });
-      setNewLabel("");
-      await refreshBins();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "create failed");
-    } finally { setBinBusy(false); }
-  }
-
-  async function toggleBin(b: BinRow) {
-    setBinBusy(true);
-    try {
-      await adminPatchBin(b.id, { active: !b.active });
-      await refreshBins();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "update failed");
-    } finally { setBinBusy(false); }
-  }
-
-  async function viewBinQr(b: BinRow) {
-    setBinBusy(true);
-    try {
-      const r = await adminGetBinQr(b.id);
-      setCreatedQr({ id: r.binId, label: r.label, png: r.qrPngBase64 });
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "qr fetch failed");
-    } finally { setBinBusy(false); }
   }
 
   return (
@@ -246,7 +200,7 @@ export default function AdminPage() {
       >
         {([
           { k: "users" as const, label: "ผู้ใช้", count: users.length },
-          { k: "bins" as const, label: "ถังขยะ", count: bins.length },
+          { k: "requests" as const, label: "คำขอ", count: requests.length },
           { k: "audit" as const, label: "ประวัติ", count: changes.length },
         ]).map((it) => {
           const active = tab === it.k;
@@ -299,6 +253,7 @@ export default function AdminPage() {
               >
                 <option value="">ALL</option>
                 <option value="student">STUDENT</option>
+                <option value="council">COUNCIL</option>
                 <option value="teacher">TEACHER</option>
                 <option value="admin">ADMIN</option>
               </select>
@@ -337,36 +292,26 @@ export default function AdminPage() {
                   </div>
                   <div>{roleChip(u.role)}</div>
                   <div>
-                    {u.role === "student" && (
-                      <button
-                        disabled={busy === u.uid}
-                        onClick={() => promote(u)}
-                        style={{
-                          padding: "6px 10px", borderRadius: 8, border: "none",
-                          background: t.moss, color: "white", fontSize: 11, fontWeight: 700,
-                          cursor: "pointer", fontFamily: BODY,
-                        }}
-                      >
-                        ↑ ครู
-                      </button>
-                    )}
-                    {u.role === "teacher" && (
-                      <button
-                        disabled={busy === u.uid}
-                        onClick={() => demote(u)}
-                        style={{
-                          padding: "6px 10px", borderRadius: 8, border: `1px solid ${t.coral}`,
-                          background: "transparent", color: t.coral, fontSize: 11, fontWeight: 700,
-                          cursor: "pointer", fontFamily: BODY,
-                        }}
-                      >
-                        ↓ ถอด
-                      </button>
-                    )}
-                    {u.role === "admin" && (
+                    {u.role === "admin" ? (
                       <span style={{ fontSize: 10, color: t.gold, fontFamily: MONO, letterSpacing: 0.5 }}>
                         LOCKED
                       </span>
+                    ) : (
+                      <select
+                        disabled={busy === u.uid}
+                        value={u.role}
+                        onChange={(e) => changeRoleTo(u, e.target.value as AssignableRole)}
+                        style={{
+                          padding: "6px 8px", borderRadius: 8,
+                          background: t.ink, color: t.gold, border: `1px solid ${t.forest}`,
+                          fontSize: 11, fontWeight: 700, fontFamily: MONO, letterSpacing: 0.4,
+                          cursor: busy === u.uid ? "default" : "pointer",
+                        }}
+                      >
+                        <option value="student">STUDENT</option>
+                        <option value="council">COUNCIL</option>
+                        <option value="teacher">TEACHER</option>
+                      </select>
                     )}
                   </div>
                 </div>
@@ -378,157 +323,70 @@ export default function AdminPage() {
           </>
         )}
 
-        {tab === "bins" && (
-          <>
-            <div style={{ ...surfaceDark, padding: 14, marginBottom: 14 }}>
-              <div style={{ ...labelStyle, color: t.gold, marginBottom: 8 }}>สร้างถังใหม่</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  placeholder="ป้ายถัง เช่น อาคาร 3 ชั้น 1"
-                  style={{
-                    flex: 1, padding: "10px 12px", borderRadius: 10,
-                    background: "rgba(255,255,255,0.05)",
-                    border: `1px solid ${t.forest}`,
-                    color: "white", fontFamily: BODY, fontSize: 13, outline: "none",
-                  }}
-                />
-                <button
-                  onClick={createBin}
-                  disabled={binBusy || !newLabel.trim()}
-                  style={{
-                    padding: "10px 16px", borderRadius: 10, border: "none",
-                    background: t.gold, color: t.ink,
-                    fontSize: 12, fontWeight: 800, letterSpacing: 0.5,
-                    fontFamily: BODY,
-                    cursor: binBusy || !newLabel.trim() ? "default" : "pointer",
-                    opacity: binBusy || !newLabel.trim() ? 0.5 : 1,
-                  }}
-                >
-                  สร้าง QR
-                </button>
-              </div>
-            </div>
-
-            {createdQr && (
-              <div
-                style={{
-                  ...surface,
-                  padding: 16, marginBottom: 14, textAlign: "center",
-                  color: t.ink, position: "relative",
-                }}
-              >
-                <button
-                  onClick={() => setCreatedQr(null)}
-                  style={{
-                    position: "absolute", top: 8, right: 10, background: "transparent",
-                    border: "none", fontSize: 18, color: t.muted, cursor: "pointer",
-                  }}
-                >
-                  ×
-                </button>
-                <div style={labelStyle}>QR ใหม่</div>
-                <div style={{ fontFamily: KANIT, fontWeight: 700, fontSize: 16, color: t.forest, margin: "6px 0 12px" }}>
-                  {createdQr.label}
-                </div>
-                <img
-                  src={`data:image/png;base64,${createdQr.png}`}
-                  alt="bin QR"
-                  style={{ width: 200, height: 200, borderRadius: 8, border: `1px solid ${t.mint}` }}
-                />
-                <div style={{ marginTop: 10 }}>
-                  <a
-                    href={`data:image/png;base64,${createdQr.png}`}
-                    download={`bin-${createdQr.label}.png`}
-                    style={{
-                      display: "inline-block",
-                      padding: "8px 16px", borderRadius: 8,
-                      background: t.forest, color: "white", fontSize: 12,
-                      fontWeight: 700, textDecoration: "none",
-                      fontFamily: BODY, letterSpacing: 0.5,
-                    }}
-                  >
-                    ⬇ ดาวน์โหลด PNG
-                  </a>
-                </div>
-                <div style={{ fontSize: 10, color: t.muted, marginTop: 8, fontFamily: MONO }}>
-                  ID {createdQr.id}
-                </div>
+        {tab === "requests" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {requestsErr && (
+              <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12 }}>
+                {requestsErr}
               </div>
             )}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {binsErr && (
-                <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12, marginBottom: 8 }}>
-                  {binsErr}
-                </div>
-              )}
-              {bins.map((b) => (
-                <div
-                  key={b.id}
-                  style={{
-                    ...surfaceDark,
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto auto auto",
-                    alignItems: "center", gap: 8,
-                    padding: "11px 14px",
-                  }}
-                >
+            {requests.map((rq) => (
+              <div
+                key={rq.id}
+                style={{
+                  ...surfaceDark,
+                  padding: "12px 14px",
+                  display: "flex", flexDirection: "column", gap: 8,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {b.label}
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, color: `${t.mint}88` }}>
+                      uid {rq.uid.slice(0, 10)}…
                     </div>
-                    <div style={{ fontSize: 9.5, color: `${t.mint}66`, marginTop: 2, fontFamily: MONO, letterSpacing: 0.5 }}>
-                      {b.id.slice(0, 12)}…
+                    <div style={{ fontSize: 13, color: "white", marginTop: 2 }}>
+                      → <strong>{rq.requestedRole.toUpperCase()}</strong>
                     </div>
                   </div>
-                  <span
-                    style={{
-                      fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase",
-                      padding: "2px 7px", borderRadius: 999, fontWeight: 700,
-                      background: b.active ? `${t.moss}cc` : `${t.coral}cc`,
-                      color: "white",
-                    }}
-                  >
-                    {b.active ? "active" : "off"}
+                  <span style={{
+                    fontSize: 9, letterSpacing: 1.2, padding: "2px 7px", borderRadius: 999,
+                    background: `${t.gold}33`, color: t.gold, fontWeight: 700,
+                  }}>
+                    PENDING
                   </span>
-                  <button
-                    onClick={() => viewBinQr(b)}
-                    disabled={binBusy}
-                    title="ดู QR"
-                    style={{
-                      padding: "6px 10px", borderRadius: 8,
-                      background: "transparent",
-                      border: `1px solid ${t.gold}`,
-                      color: t.gold,
-                      fontSize: 11, fontWeight: 700, fontFamily: BODY,
-                      cursor: "pointer",
-                    }}
-                  >
-                    QR
-                  </button>
-                  <button
-                    onClick={() => toggleBin(b)}
-                    disabled={binBusy}
-                    style={{
-                      padding: "6px 10px", borderRadius: 8,
-                      background: "transparent",
-                      border: `1px solid ${b.active ? t.coral : t.moss}`,
-                      color: b.active ? t.coral : t.moss,
-                      fontSize: 11, fontWeight: 700, fontFamily: BODY,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {b.active ? "ปิด" : "เปิด"}
-                  </button>
                 </div>
-              ))}
-              {bins.length === 0 && (
-                <div style={{ padding: 32, textAlign: "center", color: t.muted, fontSize: 13 }}>ยังไม่มีถัง</div>
-              )}
-            </div>
-          </>
+                {rq.reason && (
+                  <div style={{ fontSize: 11.5, color: `${t.mint}aa`, lineHeight: 1.4 }}>
+                    {rq.reason}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => decideRequest(rq, true)}
+                    disabled={reqBusy === rq.id}
+                    style={{
+                      flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
+                      background: t.moss, color: "white", fontSize: 12, fontWeight: 700,
+                      cursor: "pointer", fontFamily: BODY,
+                    }}
+                  >✓ อนุมัติ</button>
+                  <button
+                    onClick={() => decideRequest(rq, false)}
+                    disabled={reqBusy === rq.id}
+                    style={{
+                      flex: 1, padding: "8px 0", borderRadius: 8,
+                      background: "transparent", color: t.coral,
+                      border: `1px solid ${t.coral}`, fontSize: 12, fontWeight: 700,
+                      cursor: "pointer", fontFamily: BODY,
+                    }}
+                  >✕ ปฏิเสธ</button>
+                </div>
+              </div>
+            ))}
+            {requests.length === 0 && (
+              <div style={{ padding: 32, textAlign: "center", color: t.muted, fontSize: 13 }}>ไม่มีคำขอใหม่</div>
+            )}
+          </div>
         )}
 
         {tab === "audit" && (

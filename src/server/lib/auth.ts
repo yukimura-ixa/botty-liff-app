@@ -2,7 +2,7 @@ import { fbAuth } from "./firebase";
 
 export type AuthContext = {
   uid: string;
-  role: "student" | "teacher" | "admin" | "unknown";
+  role: "student" | "council" | "teacher" | "admin" | "unknown";
 };
 
 export class AuthError extends Error {

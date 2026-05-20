@@ -251,7 +251,7 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
             fontSize: 11.5, fontWeight: 700, color: t.forest,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            {(['🥇','🥈','🥉'] as const)[safeIdx] ?? `#${safeIdx + 1}`} อันดับ #{safeIdx + 1}
+            {active.totalPoints === 0 ? '— ยังไม่มีอันดับ' : `${(['🥇','🥈','🥉'] as const)[safeIdx] ?? `#${safeIdx + 1}`} อันดับ #${safeIdx + 1}`}
           </div>
           <div style={{
             background: isMine ? t.forest : 'rgba(255,255,255,0.85)',
@@ -263,7 +263,9 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
           }}>
             <div style={{ fontSize: 13 }}>{formatClassKey(active.classKey)}{isMine && ' ★'}</div>
             <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
-              {active.totalPoints.toLocaleString()} pts · {STAGE_NAME[stage]}
+              {active.totalPoints === 0
+                ? (active.studentCount === 0 ? 'ยังไม่มีนักเรียน' : 'ยังไม่มีนักเรียนเริ่มเก็บแต้ม')
+                : `${active.totalPoints.toLocaleString()} pts · ${STAGE_NAME[stage]}`}
             </div>
           </div>
         </div>

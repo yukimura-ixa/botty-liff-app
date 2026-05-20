@@ -123,21 +123,15 @@ export default function OnboardPage() {
         </Field>
 
         {/* Class picker */}
-        <Field label="ชั้นเรียน">
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <span style={{ fontSize: 15, color: t.muted, fontWeight: 600 }}>
-              ม.
-            </span>
-            <Segmented
-              options={GRADE_LEVELS}
-              value={grade}
-              onChange={setGrade}
-            />
-            <span style={{ fontSize: 18, color: t.muted, fontWeight: 700 }}>
-              /
-            </span>
-            <Segmented options={ROOM_LEVELS} value={room} onChange={setRoom} />
-          </div>
+        <Field label="ระดับชั้น (ม.)">
+          <Segmented
+            options={GRADE_LEVELS}
+            value={grade}
+            onChange={setGrade}
+          />
+        </Field>
+        <Field label="ห้อง">
+          <Segmented options={ROOM_LEVELS} value={room} onChange={setRoom} />
         </Field>
 
         {/* Preview */}
@@ -347,6 +341,7 @@ function Segmented({
         padding: 4,
         gap: 2,
         border: `1px solid ${t.mint}`,
+        width: "100%",
       }}
     >
       {options.map((o) => (
@@ -354,7 +349,9 @@ function Segmented({
           key={o}
           onClick={() => onChange(o)}
           style={{
-            padding: "8px 14px",
+            flex: 1,
+            minWidth: 0,
+            padding: "10px 0",
             borderRadius: 9,
             fontSize: 15,
             fontWeight: 700,
