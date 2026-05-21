@@ -21,10 +21,12 @@ export default function LoginPage() {
 
     async function run() {
       try {
-        if (sessionStorage.getItem("firebaseIdToken")) {
+        await auth.authStateReady();
+        if (auth.currentUser) {
           router.replace("/home");
           return;
         }
+        sessionStorage.removeItem("firebaseIdToken");
 
         const liff = await initLiff();
 

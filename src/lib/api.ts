@@ -25,14 +25,10 @@ export class ApiError extends Error {
 
 async function getFreshToken(): Promise<string> {
   if (typeof window === 'undefined') return ''
-  const cached = sessionStorage.getItem('firebaseIdToken')
-  if (cached) return cached
   const { auth } = await import('./firebase')
   await auth.authStateReady()
   if (!auth.currentUser) return ''
-  const t = await auth.currentUser.getIdToken()
-  sessionStorage.setItem('firebaseIdToken', t)
-  return t
+  return auth.currentUser.getIdToken()
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

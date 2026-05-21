@@ -27,7 +27,9 @@ export async function verifyBearerToken(req: Request): Promise<AuthContext> {
         ? (decoded.role as AuthContext["role"])
         : "unknown";
     return { uid: decoded.uid, role };
-  } catch {
+  } catch (e) {
+    const err = e as { code?: string; message?: string };
+    console.error("[auth] verifyIdToken failed", { code: err.code, message: err.message, tokenLen: token.length, tokenPrefix: token.slice(0, 20) });
     throw new AuthError(401, "invalid token");
   }
 }
