@@ -210,6 +210,7 @@ export async function POST(req: NextRequest) {
       scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
       basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
       newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
+      annotatedImage: det.annotatedImage,
     });
   }
   if (m === "log") {
@@ -218,6 +219,7 @@ export async function POST(req: NextRequest) {
       scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
       basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
       newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
+      annotatedImage: det.annotatedImage,
     });
   }
   return jsonOk({
@@ -226,5 +228,6 @@ export async function POST(req: NextRequest) {
     basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
     newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
     awarded: false,
+    annotatedImage: det.annotatedImage,
   });
 }
