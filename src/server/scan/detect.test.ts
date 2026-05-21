@@ -73,4 +73,54 @@ describe("detect", () => {
     }));
     await expect(detect(cfg, Buffer.from("fake-bytes"))).rejects.toThrow(/roboflow workflow: RateLimit/);
   });
+
+  const okResponseFull = (
+    preds: { class: string; confidence: number }[],
+    extras: Partial<{ outputImage: string; countObjects: number }> = {},
+  ) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      outputs: [{
+        predictions: { image: { width: 100, height: 100 }, predictions: preds },
+        ...(extras.outputImage !== undefined ? { output_image: { type: "base64", value: extras.outputImage } } : {}),
+        ...(extras.countObjects !== undefined ? { count_objects: { output: extras.countObjects } } : {}),
+      }],
+    }),
+  });
+
+  it("extracts annotatedImage from output_image.value", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponseFull(
+      [{ class: "PET Bottle", confidence: 0.85 }],
+      { outputImage: "AAA_BASE64_BYTES" },
+    )));
+    const r = await detect(cfg, Buffer.from("fake-bytes"));
+    expect(r.annotatedImage).toBe("AAA_BASE64_BYTES");
+  });
+
+  it("strips data URI prefix from output_image.value", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponseFull(
+      [{ class: "PET Bottle", confidence: 0.85 }],
+      { outputImage: "data:image/jpeg;base64,ZZZ_BYTES" },
+    )));
+    const r = await detect(cfg, Buffer.from("fake-bytes"));
+    expect(r.annotatedImage).toBe("ZZZ_BYTES");
+  });
+
+  it("leaves annotatedImage undefined when output_image missing", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponseFull(
+      [{ class: "PET Bottle", confidence: 0.85 }],
+    )));
+    const r = await detect(cfg, Buffer.from("fake-bytes"));
+    expect(r.annotatedImage).toBeUndefined();
+  });
+
+  it("prefers count_objects.output for itemCount", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponseFull(
+      [{ class: "PET Bottle", confidence: 0.85 }, { class: "PET Bottle", confidence: 0.9 }],
+      { countObjects: 5 },
+    )));
+    const r = await detect(cfg, Buffer.from("fake-bytes"));
+    expect(r.itemCount).toBe(5);
+  });
 });

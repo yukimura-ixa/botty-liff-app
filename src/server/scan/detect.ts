@@ -10,17 +10,28 @@ export type DetectResult = {
   confidence: number;
   class: string;
   itemCount: number;
+  annotatedImage?: string;
 };
 
 type WorkflowPrediction = { class: string; confidence: number };
+type WorkflowOutput = {
+  predictions?: { predictions?: WorkflowPrediction[] };
+  output_image?: { value?: string; type?: string };
+  count_objects?: { output?: number };
+};
 type WorkflowResponse = {
-  outputs?: { predictions?: { predictions?: WorkflowPrediction[] } }[];
+  outputs?: WorkflowOutput[];
   error_type?: string;
   message?: string;
 };
 
 export function classMatches(predicted: string, want: string): boolean {
   return predicted.trim().toLowerCase() === want.trim().toLowerCase();
+}
+
+function stripDataUriPrefix(s: string): string {
+  const i = s.indexOf("base64,");
+  return i >= 0 && s.startsWith("data:") ? s.slice(i + "base64,".length) : s;
 }
 
 export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Array): Promise<DetectResult> {
@@ -44,7 +55,8 @@ export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Arra
   const out = (await res.json()) as WorkflowResponse;
   if (out.error_type) throw new Error(`roboflow workflow: ${out.error_type}`);
 
-  const preds = out.outputs?.[0]?.predictions?.predictions ?? [];
+  const first = out.outputs?.[0];
+  const preds = first?.predictions?.predictions ?? [];
   let best: { conf: number; cls: string } | null = null;
   let count = 0;
   for (const p of preds) {
@@ -52,12 +64,20 @@ export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Arra
     count++;
     if (!best || p.confidence > best.conf) best = { conf: p.confidence, cls: p.class };
   }
-  if (!best) return { accepted: false, confidence: 0, class: "", itemCount: 0 };
+
+  const rawImg = first?.output_image?.value;
+  const annotatedImage = typeof rawImg === "string" && rawImg.length > 0 ? stripDataUriPrefix(rawImg) : undefined;
+
+  const cntFromBlock = first?.count_objects?.output;
+  const itemCount = typeof cntFromBlock === "number" ? cntFromBlock : count;
+
+  if (!best) return { accepted: false, confidence: 0, class: "", itemCount: 0, annotatedImage };
   return {
     accepted: best.conf >= cfg.acceptThreshold,
     confidence: best.conf,
     class: best.cls,
-    itemCount: count,
+    itemCount,
+    annotatedImage,
   };
 }
 
