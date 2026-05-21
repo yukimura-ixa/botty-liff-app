@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
 import {
   adminListUsers, adminChangeRole, adminListRoleChanges,
@@ -43,6 +44,7 @@ function roleChip(role: string) {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("users");
 
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -199,19 +201,35 @@ export default function AdminPage() {
       />
 
       <header style={{ position: "relative", padding: "60px 22px 18px", zIndex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 9, letterSpacing: 1.6, textTransform: "uppercase",
+                padding: "4px 10px", borderRadius: 999,
+                background: t.gold, color: t.ink, fontWeight: 800,
+              }}
+            >
+              แอดมิน
+            </span>
+            <span style={{ fontSize: 11, color: t.mint, letterSpacing: 0.5, opacity: 0.7, fontFamily: MONO }}>
+              CONTROL · SYSTEM
+            </span>
+          </div>
+          <button
+            onClick={() => router.push("/approver")}
             style={{
-              fontSize: 9, letterSpacing: 1.6, textTransform: "uppercase",
-              padding: "4px 10px", borderRadius: 999,
-              background: t.gold, color: t.ink, fontWeight: 800,
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 12px", borderRadius: 10,
+              background: t.gold, color: t.ink, border: "none",
+              fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
+              fontFamily: MONO, cursor: "pointer", textTransform: "uppercase",
             }}
+            aria-label="เปิด QR เจ้าหน้าที่"
           >
-            แอดมิน
-          </span>
-          <span style={{ fontSize: 11, color: t.mint, letterSpacing: 0.5, opacity: 0.7, fontFamily: MONO }}>
-            CONTROL · SYSTEM
-          </span>
+            <span style={{ fontSize: 14, lineHeight: 1 }}>▦</span>
+            QR
+          </button>
         </div>
         <h1
           style={{
