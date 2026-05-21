@@ -12,8 +12,12 @@ export function firebaseApp(): App {
     appSingleton = existing[0];
     return appSingleton;
   }
-  const raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
+  let raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("GCP_SERVICE_ACCOUNT_JSON missing");
+  raw = raw.trim();
+  if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+    raw = raw.slice(1, -1);
+  }
   const projectId = process.env.GCP_PROJECT;
   if (!projectId) throw new Error("GCP_PROJECT missing");
   const svc = JSON.parse(raw);
