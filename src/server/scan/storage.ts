@@ -15,14 +15,5 @@ export async function uploadScanImage(uid: string, scanId: string, bytes: Buffer
 }
 
 export function httpsUrl(storedPath: string): string {
-  if (storedPath.startsWith("http://") || storedPath.startsWith("https://")) return storedPath;
-  if (storedPath.startsWith("gs://")) {
-    const stripped = storedPath.slice("gs://".length);
-    const slash = stripped.indexOf("/");
-    if (slash === -1) return storedPath;
-    const bucket = stripped.slice(0, slash);
-    const path = stripped.slice(slash + 1);
-    return `https://storage.googleapis.com/${bucket}/${path}`;
-  }
   return storedPath;
 }

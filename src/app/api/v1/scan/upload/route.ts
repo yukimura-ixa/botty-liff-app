@@ -127,10 +127,10 @@ export async function POST(req: NextRequest) {
   }
 
   const scanId = ulid();
-  let gcsPath: string;
-  try { gcsPath = await uploadScanImage(ctx.uid, scanId, buf); }
+  let imageUrl: string;
+  try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
   catch (err) {
-    console.error("gcs upload error", ctx.uid, err);
+    console.error("blob upload error", ctx.uid, err);
     return jsonError(500, "storage");
   }
   const capturedAt = new Date();
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     totalPoints: pt.total,
     confidence: det.confidence,
     clientConf,
-    imagePath: gcsPath,
+    imagePath: imageUrl,
     imageHash: hash,
     phash,
     phashBucket: phashBkt,
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
         newTotalPoints: newTotal,
         newRank,
         prevRank: prof.rank ?? "ต้นกล้า",
-        imagePath: gcsPath,
+        imagePath: imageUrl,
         imageHash: hash,
         phash,
         phashBucket: phashBkt,
