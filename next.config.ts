@@ -7,7 +7,7 @@ const cspReportOnly = [
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https://storage.googleapis.com https://firebasestorage.googleapis.com https://profile.line-scdn.net",
   "connect-src 'self' https://api.line.me https://access.line.me https://*.googleapis.com https://*.firebaseio.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com",
-  "frame-src 'self' https://access.line.me",
+  "frame-src 'self' https://access.line.me https://*.firebaseapp.com",
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
   "object-src 'none'",

@@ -1,29 +1,28 @@
-import { Storage } from "@google-cloud/storage";
-
-let storageSingleton: Storage | null = null;
-
-function gcs(): Storage {
-  if (storageSingleton) return storageSingleton;
-  const raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("GCP_SERVICE_ACCOUNT_JSON missing");
-  const credentials = JSON.parse(raw);
-  storageSingleton = new Storage({ credentials, projectId: process.env.GCP_PROJECT });
-  return storageSingleton;
-}
+import { put } from "@vercel/blob";
 
 export async function uploadScanImage(uid: string, scanId: string, bytes: Buffer): Promise<string> {
-  const bucket = process.env.GCS_BUCKET;
-  if (!bucket) throw new Error("GCS_BUCKET missing");
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) throw new Error("BLOB_READ_WRITE_TOKEN missing");
   const path = `scans/${uid}/${scanId}.jpg`;
-  await gcs().bucket(bucket).file(path).save(bytes, {
+  const blob = await put(path, bytes, {
+    access: "public",
     contentType: "image/jpeg",
-    resumable: false,
+    addRandomSuffix: false,
+    allowOverwrite: false,
+    token,
   });
-  return `gs://${bucket}/${path}`;
+  return blob.url;
 }
 
-export function httpsUrl(gcsPath: string): string {
-  const bucket = process.env.GCS_BUCKET ?? "";
-  const path = gcsPath.replace(`gs://${bucket}/`, "");
-  return `https://storage.googleapis.com/${bucket}/${path}`;
+export function httpsUrl(storedPath: string): string {
+  if (storedPath.startsWith("http://") || storedPath.startsWith("https://")) return storedPath;
+  if (storedPath.startsWith("gs://")) {
+    const stripped = storedPath.slice("gs://".length);
+    const slash = stripped.indexOf("/");
+    if (slash === -1) return storedPath;
+    const bucket = stripped.slice(0, slash);
+    const path = stripped.slice(slash + 1);
+    return `https://storage.googleapis.com/${bucket}/${path}`;
+  }
+  return storedPath;
 }
