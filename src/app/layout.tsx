@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import AuthSync from '@/components/shared/AuthSync';
 import { IBM_Plex_Sans_Thai, Kanit } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
 
 const ibmPlexSansThai = IBM_Plex_Sans_Thai({
@@ -28,6 +30,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body style={{ fontFamily: 'var(--font-ibm-plex-thai), system-ui, sans-serif', background: '#FAF7EE', minHeight: '100dvh' }}>
         <AuthSync />
         {children}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
