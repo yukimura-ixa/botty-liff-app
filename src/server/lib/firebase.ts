@@ -8,6 +8,7 @@ export function firebaseApp(): App {
   if (appSingleton) return appSingleton;
   const existing = getApps();
   if (existing.length > 0) {
+    console.log("[firebase] reusing existing app, count=", existing.length, "options=", JSON.stringify(existing[0]?.options));
     appSingleton = existing[0];
     return appSingleton;
   }
@@ -16,6 +17,10 @@ export function firebaseApp(): App {
   const projectId = process.env.GCP_PROJECT;
   if (!projectId) throw new Error("GCP_PROJECT missing");
   const svc = JSON.parse(raw);
+  if (typeof svc.private_key === "string" && svc.private_key.includes("\\n")) {
+    svc.private_key = svc.private_key.replace(/\\n/g, "\n");
+  }
+  console.log("[firebase] init cert app project=", projectId, "svc.project_id=", svc.project_id, "client_email=", svc.client_email, "pk_len=", (svc.private_key || "").length, "pk_starts_ok=", (svc.private_key || "").startsWith("-----BEGIN PRIVATE KEY-----\n"));
   appSingleton = initializeApp({
     credential: cert(svc),
     projectId,
