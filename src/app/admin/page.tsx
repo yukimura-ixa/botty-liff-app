@@ -4,7 +4,9 @@ import { theme as t } from "@/lib/theme";
 import {
   adminListUsers, adminChangeRole, adminListRoleChanges,
   adminListRoleRequests, adminDecideRoleRequest,
+  adminListAdjustments, adminListAdjustRequests, adminDecideAdjustRequest,
   type UserRow, type RoleChange, type AssignableRole, type RoleRequest,
+  type Adjustment, type AdjustRequest,
 } from "@/lib/api";
 
 const KANIT = "var(--font-kanit), system-ui";
@@ -17,7 +19,7 @@ const surfaceDark: React.CSSProperties = {
   borderRadius: 14,
 };
 
-type Tab = "users" | "requests" | "audit";
+type Tab = "users" | "requests" | "adjust" | "audit";
 
 function roleChip(role: string) {
   const map: Record<string, { bg: string; fg: string }> = {
@@ -56,6 +58,12 @@ export default function AdminPage() {
   const [requestsErr, setRequestsErr] = useState("");
   const [reqBusy, setReqBusy] = useState("");
 
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
+  const [adjustmentsErr, setAdjustmentsErr] = useState("");
+  const [adjustReqs, setAdjustReqs] = useState<AdjustRequest[]>([]);
+  const [adjustReqsErr, setAdjustReqsErr] = useState("");
+  const [adjustReqBusy, setAdjustReqBusy] = useState("");
+
   // monotonically increasing token, used to discard stale responses when the
   // user types fast and earlier requests resolve after later ones.
   const usersReqSeq = useRef(0);
@@ -78,6 +86,37 @@ export default function AdminPage() {
       setRequestsErr(e instanceof Error ? e.message : "load failed");
     }
   }
+  async function refreshAdjustments() {
+    try {
+      const r = await adminListAdjustments({ limit: 100 });
+      setAdjustments(r.adjustments ?? []);
+      setAdjustmentsErr("");
+    } catch (e: unknown) {
+      setAdjustmentsErr(e instanceof Error ? e.message : "load failed");
+    }
+  }
+  async function refreshAdjustReqs() {
+    try {
+      const r = await adminListAdjustRequests();
+      setAdjustReqs(r.requests ?? []);
+      setAdjustReqsErr("");
+    } catch (e: unknown) {
+      setAdjustReqsErr(e instanceof Error ? e.message : "load failed");
+    }
+  }
+  async function decideAdjust(rq: AdjustRequest, approve: boolean) {
+    const sign = rq.delta > 0 ? "+" : "";
+    if (!confirm(approve ? `อนุมัติปรับ ${sign}${rq.delta}?` : `ปฏิเสธคำขอ?`)) return;
+    setAdjustReqBusy(rq.id);
+    try {
+      await adminDecideAdjustRequest(rq.id, approve);
+      await refreshAdjustReqs();
+      await refreshAdjustments();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "failed");
+    } finally { setAdjustReqBusy(""); }
+  }
+
   async function decideRequest(rq: RoleRequest, approve: boolean) {
     if (!confirm(approve ? `อนุมัติ ${rq.requestedRole}?` : `ปฏิเสธคำขอ?`)) return;
     setReqBusy(rq.id);
@@ -122,7 +161,7 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => { refreshChanges(); refreshRequests(); }, []);
+  useEffect(() => { refreshChanges(); refreshRequests(); refreshAdjustments(); refreshAdjustReqs(); }, []);
 
   async function changeRoleTo(u: UserRow, target: AssignableRole) {
     if (u.role === target) return;
@@ -198,8 +237,9 @@ export default function AdminPage() {
       >
         {([
           { k: "users" as const, label: "ผู้ใช้", count: users.length },
-          { k: "requests" as const, label: "คำขอ", count: requests.length },
-          { k: "audit" as const, label: "ประวัติ", count: changes.length },
+          { k: "requests" as const, label: "คำขอบทบาท", count: requests.length },
+          { k: "adjust" as const, label: "ปรับคะแนน", count: adjustReqs.length },
+          { k: "audit" as const, label: "ประวัติ", count: changes.length + adjustments.length },
         ]).map((it) => {
           const active = tab === it.k;
           return (
@@ -387,21 +427,75 @@ export default function AdminPage() {
           </div>
         )}
 
-        {tab === "audit" && (
+        {tab === "adjust" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {changesErr && (
+            {adjustReqsErr && (
               <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12 }}>
-                {changesErr}
+                {adjustReqsErr}
               </div>
             )}
+            {adjustReqs.map((rq) => {
+              const sign = rq.delta > 0 ? "+" : "";
+              const color = rq.delta > 0 ? t.moss : t.coral;
+              return (
+                <div key={rq.id} style={{ ...surfaceDark, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10.5, color: `${t.mint}88` }}>
+                        target {rq.targetUid.slice(0, 10)}…
+                      </div>
+                      <div style={{ fontSize: 13, color: "white", marginTop: 2 }}>
+                        <strong style={{ color, fontFamily: KANIT, fontSize: 18 }}>{sign}{rq.delta}</strong>
+                        <span style={{ fontSize: 10, color: t.muted, marginLeft: 6 }}>pts</span>
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, color: `${t.mint}66`, marginTop: 2 }}>
+                        by {rq.teacherUid.slice(0, 10)}…
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 9, letterSpacing: 1.2, padding: "2px 7px", borderRadius: 999, background: `${t.gold}33`, color: t.gold, fontWeight: 700 }}>
+                      PENDING
+                    </span>
+                  </div>
+                  {rq.reason && (
+                    <div style={{ fontSize: 11.5, color: `${t.mint}aa`, lineHeight: 1.4 }}>
+                      {rq.reason}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => decideAdjust(rq, true)}
+                      disabled={adjustReqBusy === rq.id}
+                      style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: "none", background: t.moss, color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: BODY }}
+                    >✓ อนุมัติ</button>
+                    <button
+                      onClick={() => decideAdjust(rq, false)}
+                      disabled={adjustReqBusy === rq.id}
+                      style={{ flex: 1, padding: "8px 0", borderRadius: 8, background: "transparent", color: t.coral, border: `1px solid ${t.coral}`, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: BODY }}
+                    >✕ ปฏิเสธ</button>
+                  </div>
+                </div>
+              );
+            })}
+            {adjustReqs.length === 0 && (
+              <div style={{ padding: 32, textAlign: "center", color: t.muted, fontSize: 13 }}>ไม่มีคำขอปรับคะแนน</div>
+            )}
+          </div>
+        )}
+
+        {tab === "audit" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(changesErr || adjustmentsErr) && (
+              <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12 }}>
+                {changesErr || adjustmentsErr}
+              </div>
+            )}
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.5, color: `${t.mint}aa`, marginBottom: 4 }}>
+              ROLE CHANGES · {changes.length}
+            </div>
             {changes.map((c) => (
               <div
                 key={c.id}
-                style={{
-                  ...surfaceDark,
-                  padding: "11px 14px",
-                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
-                }}
+                style={{ ...surfaceDark, padding: "11px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: "white", display: "flex", gap: 6, alignItems: "center", fontFamily: MONO }}>
@@ -419,7 +513,44 @@ export default function AdminPage() {
               </div>
             ))}
             {changes.length === 0 && (
-              <div style={{ padding: 32, textAlign: "center", color: t.muted, fontSize: 13 }}>ยังไม่มีประวัติ</div>
+              <div style={{ padding: 16, textAlign: "center", color: t.muted, fontSize: 12 }}>ยังไม่มีประวัติ</div>
+            )}
+
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.5, color: `${t.mint}aa`, margin: "16px 0 4px" }}>
+              POINT ADJUSTMENTS · {adjustments.length}
+            </div>
+            {adjustments.map((a) => {
+              const sign = a.delta > 0 ? "+" : "";
+              const color = a.delta > 0 ? t.moss : t.coral;
+              return (
+                <div key={a.id} style={{ ...surfaceDark, padding: "11px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: "white", fontFamily: MONO, display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ color, fontWeight: 700 }}>{sign}{a.delta}</span>
+                      <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 999, background: `${t.forest}66`, color: t.mint, letterSpacing: 0.5 }}>
+                        {a.bucket.toUpperCase()}
+                      </span>
+                      {a.source === "admin_approved" && (
+                        <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 999, background: `${t.gold}33`, color: t.gold, letterSpacing: 0.5 }}>
+                          APPROVED
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: `${t.mint}99`, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {a.reason}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, color: `${t.mint}66`, marginTop: 2 }}>
+                      target {a.targetUid.slice(0, 10)}… · by {a.teacherUid.slice(0, 10)}…
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 9.5, color: t.muted, fontFamily: MONO, whiteSpace: "nowrap" }}>
+                    {a.createdAt?.slice(0, 16).replace("T", " ")}
+                  </div>
+                </div>
+              );
+            })}
+            {adjustments.length === 0 && (
+              <div style={{ padding: 16, textAlign: "center", color: t.muted, fontSize: 12 }}>ยังไม่มีการปรับคะแนน</div>
             )}
           </div>
         )}

@@ -10,10 +10,13 @@ export type LineClaims = {
 };
 
 const LINE_VERIFY = "https://api.line.me/oauth2/v2.1/verify";
+const MAX_TOKEN_AGE_SEC = 5 * 60;
+const MAX_CLOCK_SKEW_SEC = 60;
 
 export async function verifyLineIdToken(
   idToken: string,
   channelId: string,
+  now: number = Math.floor(Date.now() / 1000),
 ): Promise<LineClaims> {
   const body = new URLSearchParams();
   body.set("id_token", idToken);
@@ -34,6 +37,17 @@ export async function verifyLineIdToken(
   }
   if (claims.iss !== "https://access.line.me") {
     throw new Error(`iss mismatch: ${claims.iss}`);
+  }
+  if (typeof claims.exp !== "number" || claims.exp <= now) {
+    throw new Error("token expired");
+  }
+  if (typeof claims.iat === "number") {
+    if (claims.iat > now + MAX_CLOCK_SKEW_SEC) {
+      throw new Error("token from future");
+    }
+    if (now - claims.iat > MAX_TOKEN_AGE_SEC) {
+      throw new Error("token too old (replay window)");
+    }
   }
   return claims;
 }

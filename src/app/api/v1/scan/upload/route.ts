@@ -7,7 +7,7 @@ import { bangkokDate } from "@/server/scan/time";
 import { computeStreak } from "@/server/scan/streak";
 import { rankForPoints } from "@/server/scan/rank";
 import { calculatePoints, DEFAULT_POINTS_CONFIG } from "@/server/scan/points";
-import { imageHash } from "@/server/scan/hash";
+import { imageHash, perceptualHash, phashBucket } from "@/server/scan/hash";
 import { detect, detectorConfigFromEnv } from "@/server/scan/detect";
 import { uploadScanImage } from "@/server/scan/storage";
 import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
@@ -15,13 +15,25 @@ import { createPending, hasOutstandingPending } from "@/server/scan/pending";
 import { awardScan } from "@/server/scan/award";
 import { isDuplicateScan } from "@/server/scan/repo";
 import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
+import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MIN_IMAGE_BYTES = 4 * 1024;
 const COOLDOWN_MS = 60_000;
 const DAILY_LIMIT = 20;
+
+function sniffImageMime(buf: Buffer): "image/jpeg" | "image/png" | null {
+  if (buf.length < 8) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) return "image/png";
+  return null;
+}
 type Mode = "off" | "log" | "enforce";
 
 function mode(): Mode {
@@ -30,6 +42,9 @@ function mode(): Mode {
 }
 
 export async function POST(req: NextRequest) {
+  const ipCheck = ipScanLimiter.take(clientIp(req));
+  if (!ipCheck.ok) return rateLimitResponse(ipCheck.retryAfterSec);
+
   let ctx;
   try { ctx = await verifyBearerToken(req); }
   catch (e) {
@@ -44,10 +59,12 @@ export async function POST(req: NextRequest) {
   const file = form.get("image");
   if (!(file instanceof Blob)) return jsonError(400, "missing image");
   if (file.size === 0) return jsonError(400, "empty image");
+  if (file.size < MIN_IMAGE_BYTES) return jsonError(400, "image too small");
   if (file.size > MAX_IMAGE_BYTES) return jsonError(413, "image too large");
 
   const buf = Buffer.from(await file.arrayBuffer());
   if (buf.length === 0) return jsonError(400, "empty image");
+  if (!sniffImageMime(buf)) return jsonError(400, "unsupported image format (need JPEG or PNG)");
   const clientConf = Number(form.get("clientConfidence") ?? 0) || 0;
   const localDate = bangkokDate(new Date());
 
@@ -71,7 +88,20 @@ export async function POST(req: NextRequest) {
   }
 
   const hash = imageHash(buf);
-  if (await isDuplicateScan(ctx.uid, hash)) return jsonError(409, "duplicate scan");
+  let phash: string | undefined;
+  try {
+    phash = await perceptualHash(buf);
+  } catch (err) {
+    console.error("phash failed", ctx.uid, err);
+  }
+  const dup = await isDuplicateScan(ctx.uid, hash, phash);
+  if (dup.dup) {
+    return new Response(
+      JSON.stringify({ error: "duplicate scan", reason: dup.reason }),
+      { status: 409, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  const phashBkt = phash ? phashBucket(phash) : undefined;
 
   const m = mode();
   if (m !== "off") {
@@ -125,6 +155,8 @@ export async function POST(req: NextRequest) {
     clientConf,
     imagePath: gcsPath,
     imageHash: hash,
+    phash,
+    phashBucket: phashBkt,
     capturedAt,
     localDate,
     scanId,
@@ -159,6 +191,8 @@ export async function POST(req: NextRequest) {
         prevRank: prof.rank ?? "ต้นกล้า",
         imagePath: gcsPath,
         imageHash: hash,
+        phash,
+        phashBucket: phashBkt,
         capturedAt,
       }));
     } catch (err) {

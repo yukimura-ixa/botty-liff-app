@@ -2,7 +2,12 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { theme as t } from '@/lib/theme';
-import { getStudent, exportToSheets, formatClassKey, type StudentProfile } from '@/lib/api';
+import {
+  getStudent, exportToSheets, formatClassKey,
+  teacherAdjustPoints, teacherCreateAdjustRequest,
+  TEACHER_IMMEDIATE_CAP, TEACHER_REQUEST_CAP,
+  ApiError, type StudentProfile,
+} from '@/lib/api';
 
 type StudentWithSeries = StudentProfile & { sevenDaySeries: number[] };
 const DAY_LABELS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
@@ -14,6 +19,7 @@ function TeacherProfileContent() {
   const [student, setStudent] = useState<StudentWithSeries | null>(null);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const [adjustOpen, setAdjustOpen] = useState(false);
 
   function load() {
     if (!uid) return;
@@ -99,10 +105,88 @@ function TeacherProfileContent() {
       </div>
 
       <div style={{ padding: '14px 18px 0', display: 'flex', gap: 8 }}>
-        <button style={{ flex:1,height:42,borderRadius:10,border:`1px solid ${t.mint}`,background:'white',color:t.forest,fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:'pointer' }}>ปรับคะแนน</button>
+        <button onClick={() => setAdjustOpen(true)} disabled={!student} style={{ flex:1,height:42,borderRadius:10,border:`1px solid ${t.mint}`,background:'white',color:t.forest,fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:student?'pointer':'default',opacity:student?1:0.5 }}>ปรับคะแนน</button>
         <button onClick={handleExport} disabled={exporting} style={{ flex:1,height:42,borderRadius:10,border:'none',background:t.forest,color:'white',fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:'pointer',opacity:exporting?0.7:1 }}>{exporting?'...':'ส่งออก Sheet ↗'}</button>
       </div>
+      {adjustOpen && student && (
+        <AdjustModal uid={uid} student={student} onClose={() => setAdjustOpen(false)} onApplied={load} />
+      )}
     </main>
+  );
+}
+
+function AdjustModal({ uid, student, onClose, onApplied }: { uid: string; student: StudentProfile; onClose: () => void; onApplied: () => void }) {
+  const [delta, setDelta] = useState<string>('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [ok, setOk] = useState('');
+
+  const n = Number(delta);
+  const valid = Number.isInteger(n) && n !== 0 && Math.abs(n) <= TEACHER_REQUEST_CAP && reason.trim().length > 0 && reason.length <= 200;
+  const needsApproval = Number.isInteger(n) && Math.abs(n) > TEACHER_IMMEDIATE_CAP && Math.abs(n) <= TEACHER_REQUEST_CAP;
+
+  async function submit() {
+    if (!valid) return;
+    setBusy(true); setErr(''); setOk('');
+    try {
+      if (needsApproval) {
+        await teacherCreateAdjustRequest(uid, n, reason.trim());
+        setOk(`ส่งคำขอ ${n > 0 ? '+' : ''}${n} ให้แอดมินอนุมัติแล้ว`);
+      } else {
+        await teacherAdjustPoints(uid, n, reason.trim());
+        setOk(`ปรับ ${n > 0 ? '+' : ''}${n} เรียบร้อย`);
+        onApplied();
+      }
+      setDelta(''); setReason('');
+    } catch (e: unknown) {
+      if (e instanceof ApiError) setErr(e.message);
+      else setErr(e instanceof Error ? e.message : 'ปรับคะแนนไม่สำเร็จ');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: 16, padding: 18, width: '100%', maxWidth: 360, border: `1px solid ${t.mint}` }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: t.forest, marginBottom: 2 }}>ปรับคะแนน</div>
+        <div style={{ fontSize: 11, color: t.muted, marginBottom: 14 }}>{student.fullName} · ปัจจุบัน {student.totalPoints.toLocaleString()} pts</div>
+
+        <label style={{ display: 'block', fontSize: 11, color: t.muted, fontWeight: 600, marginBottom: 4 }}>คะแนน (±, จำนวนเต็ม)</label>
+        <input
+          type="number"
+          step={1}
+          value={delta}
+          onChange={(e) => setDelta(e.target.value)}
+          placeholder="เช่น +5 หรือ -3"
+          style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: `1px solid ${t.mint}`, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', color: t.ink, outline: 'none', marginBottom: 10 }}
+        />
+
+        <label style={{ display: 'block', fontSize: 11, color: t.muted, fontWeight: 600, marginBottom: 4 }}>เหตุผล (จำเป็น)</label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          maxLength={200}
+          rows={3}
+          placeholder="เหตุผลการปรับคะแนน..."
+          style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: `1px solid ${t.mint}`, fontSize: 13, fontFamily: 'inherit', color: t.ink, outline: 'none', resize: 'vertical', marginBottom: 8 }}
+        />
+
+        {needsApproval && (
+          <div style={{ fontSize: 11, color: t.gold, padding: '8px 10px', borderRadius: 8, background: `${t.gold}22`, marginBottom: 10 }}>
+            ⚠ ปรับเกิน {TEACHER_IMMEDIATE_CAP} คะแนน ต้องรอแอดมินอนุมัติ
+          </div>
+        )}
+        {err && <div style={{ fontSize: 11, color: t.coral, marginBottom: 10 }}>{err}</div>}
+        {ok && <div style={{ fontSize: 11, color: t.moss, marginBottom: 10 }}>{ok}</div>}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 10, border: `1px solid ${t.mint}`, background: 'white', color: t.forest, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>ปิด</button>
+          <button onClick={submit} disabled={!valid || busy} style={{ flex: 2, height: 40, borderRadius: 10, border: 'none', background: needsApproval ? t.gold : t.forest, color: needsApproval ? t.ink : 'white', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit', cursor: valid && !busy ? 'pointer' : 'default', opacity: valid && !busy ? 1 : 0.5 }}>
+            {busy ? '...' : needsApproval ? 'ส่งคำขออนุมัติ' : 'ปรับเลย'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

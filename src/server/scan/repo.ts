@@ -1,5 +1,6 @@
 import { fbFirestore } from "@/server/lib/firebase";
 import type { Timestamp } from "firebase-admin/firestore";
+import { hammingDistance, phashBucket } from "./hash";
 
 export type ScanHistoryEntry = {
   scanId: string;
@@ -10,17 +11,70 @@ export type ScanHistoryEntry = {
   capturedAt: string;
 };
 
+// Exact SHA-256 dedup window (per-user, original behavior).
 const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+// pHash same-user window: 30 days.
+const PHASH_USER_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+// pHash global window: 7 days across all users (catches passing photos around).
+const PHASH_GLOBAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// Hamming threshold for "same image" — typical for 64-bit aHash.
+const PHASH_THRESHOLD = 6;
 
-export async function isDuplicateScan(uid: string, hash: string): Promise<boolean> {
-  const since = new Date(Date.now() - DEDUP_WINDOW_MS);
-  const snap = await fbFirestore().collection("scans")
+export type DuplicateResult =
+  | { dup: false }
+  | { dup: true; reason: "sha256" | "phash_same_user" | "phash_global"; existingScanId?: string };
+
+export async function isDuplicateScan(
+  uid: string,
+  sha256: string,
+  phash?: string,
+): Promise<DuplicateResult> {
+  const fs = fbFirestore();
+  const sha256Since = new Date(Date.now() - DEDUP_WINDOW_MS);
+  const shaSnap = await fs.collection("scans")
     .where("uid", "==", uid)
-    .where("imageHash", "==", hash)
-    .where("capturedAt", ">=", since)
+    .where("imageHash", "==", sha256)
+    .where("capturedAt", ">=", sha256Since)
     .limit(1)
     .get();
-  return !snap.empty;
+  if (!shaSnap.empty) {
+    return { dup: true, reason: "sha256", existingScanId: shaSnap.docs[0]!.id };
+  }
+  if (!phash) return { dup: false };
+
+  const bucket = phashBucket(phash);
+  const userSince = new Date(Date.now() - PHASH_USER_WINDOW_MS);
+  const userSnap = await fs.collection("scans")
+    .where("uid", "==", uid)
+    .where("phashBucket", "==", bucket)
+    .where("capturedAt", ">=", userSince)
+    .limit(50)
+    .get();
+  for (const d of userSnap.docs) {
+    const other = d.get("phash");
+    if (typeof other === "string" && other.length === phash.length) {
+      if (hammingDistance(other, phash) <= PHASH_THRESHOLD) {
+        return { dup: true, reason: "phash_same_user", existingScanId: d.id };
+      }
+    }
+  }
+
+  const globalSince = new Date(Date.now() - PHASH_GLOBAL_WINDOW_MS);
+  const globalSnap = await fs.collection("scans")
+    .where("phashBucket", "==", bucket)
+    .where("capturedAt", ">=", globalSince)
+    .limit(100)
+    .get();
+  for (const d of globalSnap.docs) {
+    if (d.get("uid") === uid) continue;
+    const other = d.get("phash");
+    if (typeof other === "string" && other.length === phash.length) {
+      if (hammingDistance(other, phash) <= PHASH_THRESHOLD) {
+        return { dup: true, reason: "phash_global", existingScanId: d.id };
+      }
+    }
+  }
+  return { dup: false };
 }
 
 function isoOf(v: unknown): string {

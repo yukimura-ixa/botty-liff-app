@@ -22,8 +22,7 @@ export default function LoginPage() {
     async function run() {
       try {
         if (sessionStorage.getItem("firebaseIdToken")) {
-          const role = sessionStorage.getItem("role");
-          router.replace(role === "teacher" ? "/teacher" : "/home");
+          router.replace("/home");
           return;
         }
 
@@ -94,9 +93,7 @@ export default function LoginPage() {
 
         if (cancelled) return;
         setPhase("redirecting");
-        router.replace(
-          onboarded ? (role === "teacher" ? "/teacher" : "/home") : "/onboard",
-        );
+        router.replace(onboarded ? "/home" : "/onboard");
       } catch (e: unknown) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "เกิดข้อผิดพลาด");

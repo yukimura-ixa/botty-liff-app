@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
-import { jsonError, jsonOk } from "@/server/lib/http";
+import { jsonError, jsonNoStore } from "@/server/lib/http";
 import { listPendingRoleRequests } from "@/server/roleRequests/repo";
 
 export const runtime = "nodejs";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const requests = await listPendingRoleRequests();
-    return jsonOk({ requests });
+    return jsonNoStore({ requests });
   } catch (err) {
     console.error("role-requests list failed", err);
     return jsonError(500, "failed");

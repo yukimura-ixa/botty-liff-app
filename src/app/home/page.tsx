@@ -90,6 +90,13 @@ export default function HomePage() {
     setGreeting(h < 12 ? "สวัสดีตอนเช้า" : h < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น");
   }, []);
 
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => {
+    setRole(sessionStorage.getItem("role"));
+  }, []);
+  const isStaff = role === "council" || role === "teacher" || role === "admin";
+  const isTeacherOrAdmin = role === "teacher" || role === "admin";
+
   if (error) {
     return (
       <main
@@ -379,6 +386,12 @@ export default function HomePage() {
             },
             { href: "/history", emoji: "📋", label: "ประวัติสแกน", bg: t.leaf },
             { href: "/profile", emoji: "🌱", label: "โปรไฟล์", bg: "#2A5E3F" },
+            ...(isStaff
+              ? [{ href: "/approver", emoji: "🔳", label: "สร้าง QR", bg: t.gold }]
+              : []),
+            ...(isTeacherOrAdmin
+              ? [{ href: "/teacher", emoji: "📊", label: "แดชบอร์ดครู", bg: t.ink }]
+              : []),
           ].map(({ href, emoji, label, bg }) => (
             <Link
               key={href}

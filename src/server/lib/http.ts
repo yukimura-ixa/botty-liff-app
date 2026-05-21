@@ -29,3 +29,9 @@ export function jsonOkCached<T extends object>(body: T, options: CachedOptions):
     headers: { "Cache-Control": parts.join(", "), ...(options.headers ?? {}) },
   });
 }
+
+export function jsonNoStore<T extends object>(body: T, options: JsonOkOptions = {}): Response {
+  return jsonOk(body, {
+    headers: { "Cache-Control": "no-store, private", ...(options.headers ?? {}) },
+  });
+}

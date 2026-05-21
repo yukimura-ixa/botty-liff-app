@@ -3,11 +3,15 @@ import { verifyLineIdToken } from "@/server/lib/line";
 import { fbAuth } from "@/server/lib/firebase";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { createPending, getUser } from "@/server/user/repo";
+import { ipAuthLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 export async function POST(req: NextRequest) {
+  const ipCheck = ipAuthLimiter.take(clientIp(req));
+  if (!ipCheck.ok) return rateLimitResponse(ipCheck.retryAfterSec);
+
   const channelId = process.env.LINE_CHANNEL_ID;
   if (!channelId) return jsonError(500, "server misconfigured");
 

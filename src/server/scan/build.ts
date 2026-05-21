@@ -13,12 +13,16 @@ export type ScanDocInput = {
   clientConf: number;
   imagePath: string;
   imageHash: string;
+  phash?: string;
+  phashBucket?: string;
   capturedAt: Date;
   localDate: string;
 };
 
 export function buildScanDoc(i: ScanDocInput) {
-  return { ...i };
+  const doc: Record<string, unknown> = { ...i };
+  for (const k of Object.keys(doc)) if (doc[k] === undefined) delete doc[k];
+  return doc;
 }
 
 export type PendingDocInput = {
@@ -40,6 +44,8 @@ export type PendingDocInput = {
   prevRank: string;
   imagePath: string;
   imageHash: string;
+  phash?: string;
+  phashBucket?: string;
   capturedAt: Date;
 };
 
@@ -49,9 +55,11 @@ export type PendingDoc = PendingDocInput & {
 };
 
 export function buildPendingDoc(i: PendingDocInput): PendingDoc {
-  return {
+  const doc = {
     ...i,
     expiresAt: new Date(i.capturedAt.getTime() + PENDING_TTL_MS),
     status: PENDING_STATUS_AWAITING,
-  };
+  } as PendingDoc & Record<string, unknown>;
+  for (const k of Object.keys(doc)) if (doc[k] === undefined) delete doc[k];
+  return doc;
 }

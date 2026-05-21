@@ -2,10 +2,10 @@ import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
 import { jsonError, jsonNoStore } from "@/server/lib/http";
-import { listAdminUsers } from "@/server/user/admin-list";
+import { listAdjustments } from "@/server/teacher/adjustments-query";
 
 export const runtime = "nodejs";
-export const maxDuration = 15;
+export const maxDuration = 10;
 
 export async function GET(req: NextRequest) {
   let ctx;
@@ -19,15 +19,14 @@ export async function GET(req: NextRequest) {
   const limitRaw = Number(url.searchParams.get("limit") ?? "50");
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 200 ? Math.floor(limitRaw) : 50;
   try {
-    const r = await listAdminUsers({
-      role: url.searchParams.get("role") ?? "",
-      q: url.searchParams.get("q") ?? "",
+    const rows = await listAdjustments({
+      targetUid: url.searchParams.get("targetUid") ?? undefined,
+      teacherUid: url.searchParams.get("teacherUid") ?? undefined,
       limit,
-      cursor: url.searchParams.get("cursor") ?? undefined,
     });
-    return jsonNoStore(r);
+    return jsonNoStore({ adjustments: rows });
   } catch (err) {
-    console.error("admin users list failed", err);
-    return jsonError(500, "list");
+    console.error("adjustments list failed", err);
+    return jsonError(500, "query");
   }
 }

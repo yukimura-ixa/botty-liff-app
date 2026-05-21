@@ -69,6 +69,8 @@ export async function awardFromPending(uid: string, p: PendingDoc, pendingId: st
       clientConf: 0,
       imagePath: p.imagePath,
       imageHash: p.imageHash,
+      phash: p.phash,
+      phashBucket: p.phashBucket,
       capturedAt: p.capturedAt,
       localDate: p.localDate,
     }));

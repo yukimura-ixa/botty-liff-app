@@ -344,3 +344,67 @@ export function adminDecideRoleRequest(id: string, approve: boolean, reason?: st
   })
 }
 
+// ── Adjustments + dual-approval ───────────────────────────────
+export type Adjustment = {
+  id: string
+  targetUid: string
+  teacherUid: string
+  delta: number
+  reason: string
+  bucket: 'small' | 'medium' | 'large' | 'unknown'
+  source: 'teacher_immediate' | 'admin_approved' | 'unknown'
+  approvedRequestId?: string
+  approverUid?: string
+  createdAt: string
+}
+
+export type AdjustRequestStatus = 'pending' | 'approved' | 'rejected'
+export type AdjustRequest = {
+  id: string
+  targetUid: string
+  teacherUid: string
+  delta: number
+  reason: string
+  status: AdjustRequestStatus
+  createdAt: string
+  decidedBy?: string
+  decidedAt?: string
+  decidedReason?: string
+}
+
+export function adminListAdjustments(opts: { targetUid?: string; teacherUid?: string; limit?: number } = {}) {
+  const p = new URLSearchParams()
+  if (opts.targetUid) p.set('targetUid', opts.targetUid)
+  if (opts.teacherUid) p.set('teacherUid', opts.teacherUid)
+  if (opts.limit) p.set('limit', String(opts.limit))
+  return request<{ adjustments: Adjustment[] }>(`/admin/adjustments?${p}`)
+}
+
+export function adminListAdjustRequests() {
+  return request<{ requests: AdjustRequest[] }>('/admin/adjustment-requests')
+}
+
+export function adminDecideAdjustRequest(id: string, approve: boolean, reason?: string) {
+  return request<{ ok: boolean }>(`/admin/adjustment-requests/${encodeURIComponent(id)}/decide`, {
+    method: 'POST',
+    body: JSON.stringify({ approve, reason }),
+  })
+}
+
+export function teacherCreateAdjustRequest(uid: string, delta: number, reason: string) {
+  return request<{ ok: boolean; id: string }>(
+    `/teacher/students/${encodeURIComponent(uid)}/adjust/request`,
+    { method: 'POST', body: JSON.stringify({ delta, reason }) },
+  )
+}
+
+export function teacherAdjustPoints(uid: string, delta: number, reason: string) {
+  return request<{ ok: boolean }>(
+    `/teacher/students/${encodeURIComponent(uid)}/adjust`,
+    { method: 'POST', body: JSON.stringify({ delta, reason }) },
+  )
+}
+
+export const TEACHER_IMMEDIATE_CAP = 10
+export const TEACHER_REQUEST_CAP = 50
+

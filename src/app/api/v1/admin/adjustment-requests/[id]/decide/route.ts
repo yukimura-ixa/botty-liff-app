@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { verifyBearerTokenWithFreshRole, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
 import { jsonError, jsonNoStore } from "@/server/lib/http";
-import { decideRoleRequest } from "@/server/roleRequests/repo";
+import { decideAdjustRequest, AdjustRequestError } from "@/server/teacher/adjust-requests";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -25,14 +25,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (reason.length > 200) return jsonError(400, "reason max 200");
 
   try {
-    await decideRoleRequest(id, ctx.uid, body.approve, reason || undefined);
+    await decideAdjustRequest(id, ctx.uid, body.approve, reason || undefined);
     return jsonNoStore({ ok: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "failed";
-    if (msg === "not_found") return jsonError(404, "not found");
-    if (msg === "not_pending") return jsonError(409, "already decided");
-    if (msg === "self") return jsonError(400, "cannot decide own request");
-    console.error("role-request decide failed", err);
+    if (err instanceof AdjustRequestError) return jsonError(err.status, err.message);
+    console.error("adjustment-request decide failed", err);
     return jsonError(500, "failed");
   }
 }
