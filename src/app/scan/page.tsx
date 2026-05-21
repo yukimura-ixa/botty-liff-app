@@ -221,6 +221,21 @@ export default function ScanPage() {
           const awarded = approverStatus === "confirmed" || !approverPrompt;
           return (
             <>
+              {result.annotatedImage && (
+                <img
+                  src={`data:image/jpeg;base64,${result.annotatedImage}`}
+                  alt="ผลการตรวจจับ"
+                  loading="lazy"
+                  style={{
+                    width: "100%",
+                    maxWidth: 360,
+                    borderRadius: 12,
+                    display: "block",
+                    marginBottom: 12,
+                    objectFit: "contain",
+                  }}
+                />
+              )}
               <div style={{ fontSize: 20, fontWeight: 800 }}>
                 {awarded ? "สแกนสำเร็จ! 🎉" : "ตรวจพบขวด PET"}
               </div>
