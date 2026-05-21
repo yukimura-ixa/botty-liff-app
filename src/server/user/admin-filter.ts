@@ -2,7 +2,7 @@ export type AdminProfile = {
   uid: string;
   fullName: string;
   classKey: string;
-  role: "student" | "teacher" | "admin";
+  role: "student" | "council" | "teacher" | "admin";
   totalPoints: number;
 };
 

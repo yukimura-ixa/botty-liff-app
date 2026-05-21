@@ -1,7 +1,7 @@
 export type Profile = {
   uid: string;
   lineUserId: string;
-  role: "student" | "teacher" | "admin";
+  role: "student" | "council" | "teacher" | "admin";
   fullName: string;
   studentId: string;
   classGrade: number;

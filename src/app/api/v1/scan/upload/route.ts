@@ -70,7 +70,11 @@ export async function POST(req: NextRequest) {
 
   const prof = await getUser(ctx.uid);
   if (!prof) return jsonError(404, "profile");
-  if ((prof.role !== "student" && prof.role !== "admin") || prof.status !== "active") return jsonError(403, "not eligible");
+  const SCAN_ELIGIBLE_ROLES = new Set(["student", "council", "teacher", "admin"]);
+  if (!SCAN_ELIGIBLE_ROLES.has(prof.role) || prof.status !== "active") {
+    console.warn("[scan/upload] 403 not eligible", { uid: ctx.uid, role: prof.role, status: prof.status });
+    return jsonError(403, "not eligible");
+  }
 
   if (prof.lastScanAt) {
     const last = prof.lastScanAt instanceof Date ? prof.lastScanAt : new Date(prof.lastScanAt as unknown as string);
