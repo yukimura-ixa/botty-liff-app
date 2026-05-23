@@ -10,7 +10,7 @@ Two related abuse paths in the scan → approver-QR → award flow let a student
 
 1. **Mode default mismatch.** `src/app/api/v1/scan/upload/route.ts:38` defaults `BIN_CONFIRM_MODE` to `"log"`, which grants the point award at upload time and treats the approver QR as decorative. `src/app/api/v1/scan/confirm/route.ts:19` defaults the same env var to `"enforce"`. If the env var is unset in any environment, students earn without QR.
 
-2. **Per-session multi-slot capture.** An approver session lasts 15 minutes and rotates 30 distinct slot QRs (30 s each). The current `claimSlot` transaction in `src/server/approver/repo.ts:81` enforces uniqueness only on `(sessionId, slot)` — a single student who captures multiple rotating QRs (e.g. by recording the approver screen) can claim one award per slot, capped only by the 60 s scan cooldown and the 20-scan daily limit.
+2. **Per-session multi-slot capture.** An approver session currently lasts 15 minutes and rotates 30 distinct slot QRs (30 s each); this is being shortened to 5 minutes (10 slots × 30 s). The current `claimSlot` transaction in `src/server/approver/repo.ts:81` enforces uniqueness only on `(sessionId, slot)` — a single student who captures multiple rotating QRs (e.g. by recording the approver screen) can claim one award per slot, capped only by the 60 s scan cooldown and the 20-scan daily limit.
 
 Additionally, `calculatePoints` in `src/server/scan/points.ts:18` floors `itemCount` to ≥1 but has no upper bound, so a detector that returns an unreasonably large bottle count produces unbounded `basePoints`.
 
@@ -20,11 +20,12 @@ Make "one trip to an open bin → one award" the enforced invariant, and bound t
 
 ## Approach
 
-Three coordinated changes:
+Four coordinated changes:
 
 1. Align `BIN_CONFIRM_MODE` default to `"enforce"` in both routes.
 2. Add a per-(student, session) award cap inside the `claimSlot` transaction.
 3. Cap `itemCount` in points calculation.
+4. Shorten approver session from 15 min → 5 min (`SLOTS_PER_SESSION: 30 → 10`).
 
 ## Components Touched
 
@@ -36,6 +37,7 @@ Three coordinated changes:
 | `src/server/scan/points.ts` | `PointsConfig` adds `maxItemsPerScan`; clamp in `calculatePoints` |
 | `src/server/scan/points.test.ts` | Cap tests |
 | `src/server/approver/repo.test.ts` *(new)* | claimSlot tx student-cap tests |
+| `src/server/approver/mint.ts` | `SLOTS_PER_SESSION: 30 → 10` (5-min session) |
 
 ## Firestore Layout
 
@@ -76,7 +78,8 @@ No schema migration. Existing in-flight sessions lazy-create the `students/` sub
 
 ## Constants
 
-- `MAX_ITEMS_PER_SCAN = 5` baked into `DEFAULT_POINTS_CONFIG`. No env knob (YAGNI).
+- `MAX_ITEMS_PER_SCAN = 10` baked into `DEFAULT_POINTS_CONFIG`. No env knob (YAGNI).
+- `SLOTS_PER_SESSION = 10` (was 30) in `src/server/approver/mint.ts`. `SESSION_DURATION_MS` auto-derives to 5 min via existing expression.
 
 ## Error Handling
 
@@ -104,7 +107,7 @@ No schema migration. Existing in-flight sessions lazy-create the `students/` sub
 |---|---|---|
 | Direct upload bypass | award fires at upload in default-log mode | enforce default; no award without confirm |
 | Replay single saved QR | already blocked (slot single-use) | unchanged |
-| Capture multiple rotating QRs in one session | up to ~15 awards/session (cooldown-bounded) | 1 award/session per student |
+| Capture multiple rotating QRs in one session | up to ~5 awards/session (cooldown-bounded, 5-min window) | 1 award/session per student |
 | Detector inflated `itemCount` | unbounded points | capped at `maxItemsPerScan` |
 
 ## Backward Compatibility
