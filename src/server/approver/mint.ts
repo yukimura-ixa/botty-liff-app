@@ -1,8 +1,8 @@
 import { signSlotToken } from "./token";
 
 export const SLOT_DURATION_MS = 30_000;
-export const SLOTS_PER_SESSION = 30;
-export const SESSION_DURATION_MS = SLOT_DURATION_MS * SLOTS_PER_SESSION; // 15 minutes
+export const SLOTS_PER_SESSION = 10;
+export const SESSION_DURATION_MS = SLOT_DURATION_MS * SLOTS_PER_SESSION; // 5 minutes
 
 export type MintedSlot = {
   slot: number;
