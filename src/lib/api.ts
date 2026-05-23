@@ -95,6 +95,7 @@ export interface ScanResult {
   detectedClass: string
   confidence: number
   itemCount: number
+  pointedItems: number
   basePoints: number
   streakBonus: number
   totalPoints: number

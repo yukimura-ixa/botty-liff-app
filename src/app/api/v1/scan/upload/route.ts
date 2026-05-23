@@ -146,6 +146,8 @@ export async function POST(req: NextRequest) {
   const isFirstOfDay = prof.dailyScanDate !== localDate;
   const newDaily = isFirstOfDay ? 1 : (prof.dailyScans ?? 0) + 1;
   const pt = calculatePoints(DEFAULT_POINTS_CONFIG, newStreak, isFirstOfDay, det.itemCount);
+  const rawItems = Number.isFinite(det.itemCount) ? Math.floor(det.itemCount) : 1;
+  const pointedItems = Math.min(DEFAULT_POINTS_CONFIG.maxItemsPerScan, Math.max(1, rawItems));
   const newTotal = (prof.totalPoints ?? 0) + pt.total;
   const newRank = rankForPoints(newTotal);
 
@@ -210,6 +212,7 @@ export async function POST(req: NextRequest) {
   if (m === "off") {
     return jsonOk({
       scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
+      pointedItems,
       basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
       newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
       annotatedImage: det.annotatedImage,
@@ -219,6 +222,7 @@ export async function POST(req: NextRequest) {
     return jsonOk({
       pendingId, expiresInSec: Math.floor(PENDING_TTL_MS / 1000),
       scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
+      pointedItems,
       basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
       newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
       annotatedImage: det.annotatedImage,
@@ -227,6 +231,7 @@ export async function POST(req: NextRequest) {
   return jsonOk({
     pendingId, expiresInSec: Math.floor(PENDING_TTL_MS / 1000),
     scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
+    pointedItems,
     basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
     newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
     awarded: false,
