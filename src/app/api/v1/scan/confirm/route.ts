@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
     if (msg === "session_ended") return jsonError(400, "approver session ended");
     if (msg === "session_expired") return jsonError(400, "approver session expired");
     if (msg === "slot_used") return jsonError(409, "QR ถูกใช้ไปแล้ว ขอ QR ใหม่จากเจ้าหน้าที่");
+    if (msg === "student_already_awarded") return jsonError(409, "คุณได้รับคะแนนจากรอบนี้แล้ว ขอ QR ใหม่จากเจ้าหน้าที่ในรอบถัดไป");
     console.error("claim slot failed", e);
     return jsonError(500, "claim failed");
   }
