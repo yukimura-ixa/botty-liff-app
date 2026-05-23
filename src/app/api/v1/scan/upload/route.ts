@@ -37,8 +37,10 @@ function sniffImageMime(buf: Buffer): "image/jpeg" | "image/png" | null {
 type Mode = "off" | "log" | "enforce";
 
 function mode(): Mode {
-  const m = (process.env.BIN_CONFIRM_MODE ?? "log") as Mode;
-  return m === "off" || m === "enforce" ? m : "log";
+  // Default: enforce — students earn points only after staff QR scan.
+  // Matches src/app/api/v1/scan/confirm/route.ts mode() default.
+  const m = (process.env.BIN_CONFIRM_MODE ?? "enforce") as Mode;
+  return m === "off" || m === "log" ? m : "enforce";
 }
 
 export async function POST(req: NextRequest) {
