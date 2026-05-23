@@ -27,8 +27,32 @@ describe("calculatePoints (default config)", () => {
   });
 });
 
+describe("calculatePoints itemCount cap", () => {
+  const cfg = DEFAULT_POINTS_CONFIG;
+
+  it("caps itemCount to maxItemsPerScan", () => {
+    expect(calculatePoints(cfg, 0, false, 100)).toEqual({ basePoints: 10, streakBonus: 0, total: 10 });
+    expect(calculatePoints(cfg, 0, false, 11)).toEqual({ basePoints: 10, streakBonus: 0, total: 10 });
+  });
+  it("does not cap when itemCount equals maxItemsPerScan", () => {
+    expect(calculatePoints(cfg, 0, false, 10)).toEqual({ basePoints: 10, streakBonus: 0, total: 10 });
+  });
+  it("does not cap when itemCount is below maxItemsPerScan", () => {
+    expect(calculatePoints(cfg, 0, false, 9)).toEqual({ basePoints: 9, streakBonus: 0, total: 9 });
+  });
+  it("treats NaN itemCount as 1", () => {
+    expect(calculatePoints(cfg, 0, false, NaN)).toEqual({ basePoints: 1, streakBonus: 0, total: 1 });
+  });
+});
+
+describe("DEFAULT_POINTS_CONFIG maxItemsPerScan", () => {
+  it("is 10", () => {
+    expect(DEFAULT_POINTS_CONFIG.maxItemsPerScan).toBe(10);
+  });
+});
+
 describe("DEFAULT_POINTS_CONFIG", () => {
   it("matches Go backend values", () => {
-    expect(DEFAULT_POINTS_CONFIG).toEqual({ basePoints: 1, streakMultiplier: 0.5, streakCap: 10 });
+    expect(DEFAULT_POINTS_CONFIG).toEqual({ basePoints: 1, streakMultiplier: 0.5, streakCap: 10, maxItemsPerScan: 10 });
   });
 });
