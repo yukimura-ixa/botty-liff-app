@@ -261,6 +261,11 @@ export default function ScanPage() {
                   {result.itemCount} ชิ้น
                 </span>
               </div>
+              {result.pointedItems !== result.itemCount && (
+                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                  นับให้สูงสุด {result.pointedItems} ขวด/สแกน
+                </div>
+              )}
               {awarded ? (
                 <>
                   <div style={{ fontSize: 72, fontWeight: 900, color: t.gold, lineHeight: 1 }}>
