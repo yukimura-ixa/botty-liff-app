@@ -77,12 +77,18 @@ export async function endSession(id: string, actorUid: string): Promise<void> {
   });
 }
 
-export type ClaimError = "session_not_found" | "session_ended" | "session_expired" | "slot_used";
+export type ClaimError =
+  | "session_not_found"
+  | "session_ended"
+  | "session_expired"
+  | "slot_used"
+  | "student_already_awarded";
 
 export async function claimSlot(sessionId: string, slot: number, studentUid: string, scanId: string): Promise<{ staffUid: string }> {
   const fs = fbFirestore();
   const sessionRef = fs.collection(COLLECTION).doc(sessionId);
   const slotRef = sessionRef.collection("slots").doc(String(slot));
+  const studentRef = sessionRef.collection("students").doc(studentUid);
   return fs.runTransaction(async (tx) => {
     const sessionSnap = await tx.get(sessionRef);
     if (!sessionSnap.exists) throw new Error("session_not_found");
@@ -94,9 +100,18 @@ export async function claimSlot(sessionId: string, slot: number, studentUid: str
     const slotSnap = await tx.get(slotRef);
     if (slotSnap.exists) throw new Error("slot_used");
 
+    const studentSnap = await tx.get(studentRef);
+    if (studentSnap.exists) throw new Error("student_already_awarded");
+
+    const now = new Date();
     tx.set(slotRef, {
       usedBy: studentUid,
-      usedAt: new Date(),
+      usedAt: now,
+      scanId,
+    });
+    tx.set(studentRef, {
+      awardedAt: now,
+      slot,
       scanId,
     });
     tx.update(sessionRef, { awardsCount: FieldValue.increment(1) });
