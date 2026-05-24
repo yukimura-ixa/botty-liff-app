@@ -16,17 +16,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   }
   if (!hasRole(ctx, "teacher")) return jsonError(403, "forbidden");
   const { uid } = await params;
+  if (!uid) return jsonError(400, "uid required");
 
   let body: { role?: string };
   try { body = await req.json(); }
   catch { return jsonError(400, "invalid json"); }
-  if (!body.role) return jsonError(400, "role required");
-  if (body.role !== "student" && body.role !== "council") {
+  const roleVal = (body.role ?? "").toString().trim().toLowerCase();
+  if (!roleVal) return jsonError(400, "role required");
+  if (roleVal !== "student" && roleVal !== "council") {
     return jsonError(400, "role must be student or council");
   }
 
   try {
-    const r = await changeRoleAsTeacher(uid, ctx.uid, body.role as TeacherAssignableRole);
+    const r = await changeRoleAsTeacher(uid, ctx.uid, roleVal as TeacherAssignableRole);
     if (r.noop) return jsonNoStore({ ok: true, noop: true });
     if (!r.claimUpdateOk) {
       return jsonNoStore({
@@ -43,6 +45,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
     if (msg === "not_found") return jsonError(404, "user not found");
     if (msg === "forbidden_target") return jsonError(403, "cannot change teacher or admin role");
     console.error("teacher change role failed", err);
-    return jsonError(500, msg);
+    return jsonError(500, "internal");
   }
 }
