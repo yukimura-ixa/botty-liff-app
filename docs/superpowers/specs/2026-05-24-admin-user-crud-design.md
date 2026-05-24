@@ -260,6 +260,7 @@ Mock pattern follows `src/server/approver/repo.test.ts` and `src/server/user/rol
 - `userEdits` Firestore collection captures every successful edit with `targetUid`, `byUid`, `changes`, `createdAt`.
 - Inactive users visually distinguished in admin list with muted styling + "(ไม่ใช้งาน)" badge.
 - Admin-only `"จัดการระบบ"` tile rendered on `/home` only when `role === "admin"`; links to `/admin`.
+- Admin-only `"จัดการระบบ"` tile appears on `/home` for admin users; absent for non-admin roles.
 - All existing tests pass. New `src/server/user/repo.test.ts` covers the unit-test list in §4.1.
 - `npx tsc --noEmit` clean.
 - No new lint errors introduced (baseline: 12 pre-existing errors after teacher-promote branch merge).
