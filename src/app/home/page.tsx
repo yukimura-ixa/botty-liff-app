@@ -392,6 +392,9 @@ export default function HomePage() {
             ...(isTeacherOrAdmin
               ? [{ href: "/teacher", emoji: "📊", label: "แดชบอร์ดครู", bg: t.ink }]
               : []),
+            ...(role === "admin"
+              ? [{ href: "/admin", emoji: "⚙️", label: "จัดการระบบ", bg: t.ink }]
+              : []),
           ].map(({ href, emoji, label, bg }) => (
             <Link
               key={href}
