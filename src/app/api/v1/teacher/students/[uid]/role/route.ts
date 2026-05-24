@@ -16,7 +16,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   }
   if (!hasRole(ctx, "teacher")) return jsonError(403, "forbidden");
   const { uid } = await params;
-  if (!uid) return jsonError(400, "uid required");
+  if (!uid || uid.length > 128 || !/^[A-Za-z0-9_-]+$/.test(uid)) {
+    return jsonError(400, "invalid uid");
+  }
 
   let body: { role?: string };
   try { body = await req.json(); }

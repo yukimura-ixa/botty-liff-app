@@ -22,15 +22,10 @@ function TeacherProfileContent() {
   const [error, setError] = useState('');
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [roleBusy, setRoleBusy] = useState(false);
-  const [pendingRole, setPendingRole] = useState<'student' | 'council'>('student');
   const [confirmRoleOpen, setConfirmRoleOpen] = useState(false);
-
-  useEffect(() => {
-    if (student) {
-      const r = student.role === 'council' ? 'council' : 'student';
-      setPendingRole(r);
-    }
-  }, [student?.role]);
+  const [pendingRoleOverride, setPendingRoleOverride] = useState<'student' | 'council' | null>(null);
+  const currentRole: 'student' | 'council' = student?.role === 'council' ? 'council' : 'student';
+  const pendingRole: 'student' | 'council' = pendingRoleOverride ?? currentRole;
 
   async function submitRoleChange() {
     if (!student) return;
@@ -42,6 +37,7 @@ function TeacherProfileContent() {
       } else if (!r.noop) {
         alert(`เปลี่ยนเป็น ${pendingRole === 'council' ? 'สภานักเรียน' : 'นักเรียน'} แล้ว`);
       }
+      setPendingRoleOverride(null);
       load();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'failed';
@@ -153,7 +149,7 @@ function TeacherProfileContent() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <select
                 value={pendingRole}
-                onChange={(e) => setPendingRole(e.target.value as 'student' | 'council')}
+                onChange={(e) => setPendingRoleOverride(e.target.value as 'student' | 'council')}
                 disabled={roleBusy}
                 style={{
                   flex: 1, height: 38, borderRadius: 10,
