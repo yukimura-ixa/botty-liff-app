@@ -277,6 +277,13 @@ export function adminChangeRole(uid: string, role: AssignableRole, reason?: stri
   );
 }
 
+export function teacherChangeStudentRole(uid: string, role: 'student' | 'council') {
+  return request<{ ok: boolean; roleChangeId?: string; noop?: boolean; warning?: string }>(
+    `/teacher/students/${encodeURIComponent(uid)}/role`,
+    { method: 'POST', body: JSON.stringify({ role }) },
+  );
+}
+
 export function adminListRoleChanges(targetUid?: string): Promise<{ changes: RoleChange[] }> {
   const p = new URLSearchParams();
   if (targetUid) p.set('targetUid', targetUid);
