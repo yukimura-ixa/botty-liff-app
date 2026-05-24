@@ -6,8 +6,10 @@ import {
   adminListUsers, adminChangeRole, adminListRoleChanges,
   adminListRoleRequests, adminDecideRoleRequest,
   adminListAdjustments, adminListAdjustRequests, adminDecideAdjustRequest,
+  adminUpdateUser,
   type UserRow, type RoleChange, type AssignableRole, type RoleRequest,
   type Adjustment, type AdjustRequest,
+  type UserPatch,
 } from "@/lib/api";
 
 const KANIT = "var(--font-kanit), system-ui";
@@ -52,6 +54,19 @@ export default function AdminPage() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string>("");
   const [err, setErr] = useState("");
+
+  const [expandedUid, setExpandedUid] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    fullName: string;
+    classGrade: string;
+    classRoom: string;
+    totalPoints: string;
+    status: 'active' | 'inactive';
+  }>({ fullName: '', classGrade: '0', classRoom: '0', totalPoints: '0', status: 'active' });
+  const [editBusy, setEditBusy] = useState(false);
+  const [editErr, setEditErr] = useState('');
+  const [editToast, setEditToast] = useState('');
+  const [confirmEditOpen, setConfirmEditOpen] = useState(false);
 
   const [changes, setChanges] = useState<RoleChange[]>([]);
   const [changesErr, setChangesErr] = useState("");
@@ -149,6 +164,78 @@ export default function AdminPage() {
     }, 200);
     return () => clearTimeout(handle);
   }, [roleFilter, q]);
+
+  useEffect(() => {
+    if (!editToast) return;
+    const t = setTimeout(() => setEditToast(''), 2000);
+    return () => clearTimeout(t);
+  }, [editToast]);
+
+  function openEdit(u: UserRow) {
+    setExpandedUid(u.uid);
+    setEditErr('');
+    setEditForm({
+      fullName: u.fullName ?? '',
+      classGrade: String((u as unknown as { classGrade?: number }).classGrade ?? 0),
+      classRoom: String((u as unknown as { classRoom?: number }).classRoom ?? 0),
+      totalPoints: String(u.totalPoints ?? 0),
+      status: ((u as unknown as { status?: string }).status === 'inactive' ? 'inactive' : 'active'),
+    });
+  }
+
+  function closeEdit() {
+    setExpandedUid(null);
+    setEditErr('');
+    setConfirmEditOpen(false);
+  }
+
+  function isDestructive(u: UserRow): boolean {
+    const origPoints = u.totalPoints ?? 0;
+    const origStatus = (u as unknown as { status?: string }).status === 'inactive' ? 'inactive' : 'active';
+    const newPoints = Number(editForm.totalPoints);
+    const statusDestructive = origStatus === 'active' && editForm.status === 'inactive';
+    const pointsZero = newPoints === 0 && origPoints > 0;
+    const pointsBigDrop = origPoints > 0 && newPoints < origPoints * 0.5;
+    return statusDestructive || pointsZero || pointsBigDrop;
+  }
+
+  async function submitEdit(u: UserRow) {
+    setEditBusy(true);
+    setEditErr('');
+    try {
+      const patch: UserPatch = {};
+      const newFullName = editForm.fullName.trim();
+      if (newFullName !== (u.fullName ?? '')) patch.fullName = newFullName;
+      const newGrade = Number(editForm.classGrade);
+      const origGrade = (u as unknown as { classGrade?: number }).classGrade ?? 0;
+      if (newGrade !== origGrade) patch.classGrade = newGrade;
+      const newRoom = Number(editForm.classRoom);
+      const origRoom = (u as unknown as { classRoom?: number }).classRoom ?? 0;
+      if (newRoom !== origRoom) patch.classRoom = newRoom;
+      const newPoints = Number(editForm.totalPoints);
+      if (newPoints !== u.totalPoints) patch.totalPoints = newPoints;
+      const origStatus = (u as unknown as { status?: string }).status === 'inactive' ? 'inactive' : 'active';
+      if (editForm.status !== origStatus) patch.status = editForm.status;
+
+      if (Object.keys(patch).length === 0) {
+        setEditToast('ไม่มีการเปลี่ยนแปลง');
+        closeEdit();
+        return;
+      }
+
+      const r = await adminUpdateUser(u.uid, patch);
+      setEditToast(r.noop ? 'ไม่มีการเปลี่ยนแปลง' : 'บันทึกแล้ว');
+      closeEdit();
+      const list = await adminListUsers({ role: roleFilter, q });
+      setUsers(list.users ?? []);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'failed';
+      setEditErr(msg);
+    } finally {
+      setEditBusy(false);
+      setConfirmEditOpen(false);
+    }
+  }
 
   async function refreshUsers() {
     const myReq = ++usersReqSeq.current;
@@ -322,56 +409,203 @@ export default function AdminPage() {
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {users.map((u, i) => (
-                <div
-                  key={u.uid}
-                  style={{
+              {users.map((u, i) => {
+                const isInactive = (u as unknown as { status?: string }).status === 'inactive';
+                const expanded = expandedUid === u.uid;
+                return (
+                  <div key={u.uid} style={{
                     ...surfaceDark,
-                    display: "grid",
-                    gridTemplateColumns: "24px 1fr auto auto",
-                    alignItems: "center", gap: 10,
-                    padding: "11px 14px",
-                  }}
-                >
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: `${t.mint}77`, textAlign: "right" }}>
-                    {String(i + 1).padStart(2, "0")}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {u.fullName || <span style={{ color: t.muted, fontStyle: "italic" }}>(ยังไม่กรอกข้อมูล)</span>}
+                    opacity: isInactive ? 0.55 : 1,
+                  }}>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "24px 1fr auto auto auto",
+                      alignItems: "center", gap: 10,
+                      padding: "11px 14px",
+                    }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: `${t.mint}77`, textAlign: "right" }}>
+                        {String(i + 1).padStart(2, "0")}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {u.fullName || <span style={{ color: t.muted, fontStyle: "italic" }}>(ยังไม่กรอกข้อมูล)</span>}
+                          {isInactive && (
+                            <span style={{ marginLeft: 6, fontSize: 9, padding: '1px 6px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>
+                              (ไม่ใช้งาน)
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: `${t.mint}88`, marginTop: 2, display: "flex", alignItems: "center", gap: 6, fontFamily: MONO }}>
+                          <span>{u.classKey || "—"}</span>
+                          <span style={{ opacity: 0.4 }}>·</span>
+                          <span>{u.totalPoints.toLocaleString()} pts</span>
+                        </div>
+                      </div>
+                      <div>{roleChip(u.role)}</div>
+                      <div>
+                        {u.role === "admin" ? (
+                          <span style={{ fontSize: 10, color: t.gold, fontFamily: MONO, letterSpacing: 0.5 }}>
+                            LOCKED
+                          </span>
+                        ) : (
+                          <select
+                            disabled={busy === u.uid}
+                            value={u.role}
+                            onChange={(e) => changeRoleTo(u, e.target.value as AssignableRole)}
+                            style={{
+                              padding: "6px 8px", borderRadius: 8,
+                              background: t.ink, color: t.gold, border: `1px solid ${t.forest}`,
+                              fontSize: 11, fontWeight: 700, fontFamily: MONO, letterSpacing: 0.4,
+                              cursor: busy === u.uid ? "default" : "pointer",
+                            }}
+                          >
+                            <option value="student">STUDENT</option>
+                            <option value="council">COUNCIL</option>
+                            <option value="teacher">TEACHER</option>
+                          </select>
+                        )}
+                      </div>
+                      <div>
+                        {u.role !== 'admin' && u.role !== 'teacher' && (
+                          <button
+                            type="button"
+                            onClick={() => expanded ? closeEdit() : openEdit(u)}
+                            style={{
+                              fontSize: 10, padding: '6px 8px', borderRadius: 8,
+                              background: 'rgba(255,255,255,0.06)',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                              color: 'white', cursor: 'pointer', fontFamily: MONO,
+                            }}
+                          >
+                            {expanded ? '▴' : '▾'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 10.5, color: `${t.mint}88`, marginTop: 2, display: "flex", alignItems: "center", gap: 6, fontFamily: MONO }}>
-                      <span>{u.classKey || "—"}</span>
-                      <span style={{ opacity: 0.4 }}>·</span>
-                      <span>{u.totalPoints.toLocaleString()} pts</span>
-                    </div>
-                  </div>
-                  <div>{roleChip(u.role)}</div>
-                  <div>
-                    {u.role === "admin" ? (
-                      <span style={{ fontSize: 10, color: t.gold, fontFamily: MONO, letterSpacing: 0.5 }}>
-                        LOCKED
-                      </span>
-                    ) : (
-                      <select
-                        disabled={busy === u.uid}
-                        value={u.role}
-                        onChange={(e) => changeRoleTo(u, e.target.value as AssignableRole)}
-                        style={{
-                          padding: "6px 8px", borderRadius: 8,
-                          background: t.ink, color: t.gold, border: `1px solid ${t.forest}`,
-                          fontSize: 11, fontWeight: 700, fontFamily: MONO, letterSpacing: 0.4,
-                          cursor: busy === u.uid ? "default" : "pointer",
-                        }}
-                      >
-                        <option value="student">STUDENT</option>
-                        <option value="council">COUNCIL</option>
-                        <option value="teacher">TEACHER</option>
-                      </select>
+                    {expanded && (
+                      <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingTop: 10 }}>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10, color: `${t.mint}aa`, fontFamily: MONO, letterSpacing: 0.4 }}>
+                            ชื่อ-สกุล
+                            <input
+                              value={editForm.fullName}
+                              onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                              disabled={editBusy}
+                              maxLength={80}
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '6px 8px', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }}
+                            />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10, color: `${t.mint}aa`, fontFamily: MONO, letterSpacing: 0.4 }}>
+                            สถานะ
+                            <select
+                              value={editForm.status}
+                              onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'active' | 'inactive' })}
+                              disabled={editBusy}
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '6px 8px', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }}
+                            >
+                              <option value="active">ใช้งาน</option>
+                              <option value="inactive">ไม่ใช้งาน</option>
+                            </select>
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10, color: `${t.mint}aa`, fontFamily: MONO, letterSpacing: 0.4 }}>
+                            ชั้น
+                            <input
+                              type="number"
+                              min={0} max={13}
+                              value={editForm.classGrade}
+                              onChange={(e) => setEditForm({ ...editForm, classGrade: e.target.value })}
+                              disabled={editBusy}
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '6px 8px', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }}
+                            />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10, color: `${t.mint}aa`, fontFamily: MONO, letterSpacing: 0.4 }}>
+                            ห้อง
+                            <input
+                              type="number"
+                              min={0} max={99}
+                              value={editForm.classRoom}
+                              onChange={(e) => setEditForm({ ...editForm, classRoom: e.target.value })}
+                              disabled={editBusy}
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '6px 8px', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }}
+                            />
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10, color: `${t.mint}aa`, fontFamily: MONO, letterSpacing: 0.4, gridColumn: '1 / 3' }}>
+                            คะแนนรวม
+                            <input
+                              type="number"
+                              min={0} max={1000000}
+                              value={editForm.totalPoints}
+                              onChange={(e) => setEditForm({ ...editForm, totalPoints: e.target.value })}
+                              disabled={editBusy}
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '6px 8px', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }}
+                            />
+                          </label>
+                        </div>
+                        {editErr && (
+                          <div style={{ color: t.coral, fontSize: 11, marginTop: 8 }}>{editErr}</div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                          <button
+                            type="button"
+                            onClick={closeEdit}
+                            disabled={editBusy}
+                            style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}
+                          >
+                            ยกเลิก
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isDestructive(u)) {
+                                setConfirmEditOpen(true);
+                              } else {
+                                submitEdit(u);
+                              }
+                            }}
+                            disabled={editBusy}
+                            style={{ fontSize: 11, padding: '6px 14px', borderRadius: 8, background: t.forest, border: 'none', color: 'white', cursor: 'pointer', fontFamily: 'inherit', opacity: editBusy ? 0.7 : 1 }}
+                          >
+                            {editBusy ? 'กำลังบันทึก...' : 'บันทึก'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {expanded && confirmEditOpen && (
+                      <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50,
+                      }}>
+                        <div style={{ background: t.ink, borderRadius: 14, padding: 20, maxWidth: 360, width: '100%', border: `1px solid ${t.forest}` }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'white' }}>
+                            ยืนยันการเปลี่ยนแปลง
+                          </div>
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 14 }}>
+                            การเปลี่ยนแปลงนี้อาจส่งผลกระทบ (ลบสถานะใช้งาน หรือ ลดคะแนนลงมาก). ดำเนินการต่อ?
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmEditOpen(false)}
+                              disabled={editBusy}
+                              style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}
+                            >
+                              ยกเลิก
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => submitEdit(u)}
+                              disabled={editBusy}
+                              style={{ fontSize: 11, padding: '6px 14px', borderRadius: 8, background: t.coral, border: 'none', color: 'white', cursor: 'pointer', fontFamily: 'inherit', opacity: editBusy ? 0.7 : 1 }}
+                            >
+                              {editBusy ? '...' : 'ยืนยัน'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {users.length === 0 && (
                 <div style={{ padding: 32, textAlign: "center", color: t.muted, fontSize: 13 }}>ไม่พบผู้ใช้</div>
               )}
@@ -573,6 +807,16 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+      {editToast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: t.forest, color: 'white', padding: '8px 16px',
+          borderRadius: 999, fontSize: 12, fontWeight: 600,
+          zIndex: 100,
+        }}>
+          {editToast}
+        </div>
+      )}
     </main>
   );
 }
