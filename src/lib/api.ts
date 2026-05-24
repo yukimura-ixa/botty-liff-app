@@ -279,6 +279,23 @@ export function adminChangeRole(uid: string, role: AssignableRole, reason?: stri
   );
 }
 
+export type UserPatch = {
+  fullName?: string;
+  classGrade?: number;
+  classRoom?: number;
+  totalPoints?: number;
+  status?: 'active' | 'inactive';
+};
+
+export type UserEditChange = { field: string; oldValue: unknown; newValue: unknown };
+
+export function adminUpdateUser(uid: string, patch: UserPatch) {
+  return request<{ ok: boolean; noop?: boolean; editId?: string; changes?: UserEditChange[] }>(
+    `/admin/users/${encodeURIComponent(uid)}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  );
+}
+
 export function teacherChangeStudentRole(uid: string, role: 'student' | 'council') {
   return request<{ ok: boolean; roleChangeId?: string; noop?: boolean; warning?: string }>(
     `/teacher/students/${encodeURIComponent(uid)}/role`,
