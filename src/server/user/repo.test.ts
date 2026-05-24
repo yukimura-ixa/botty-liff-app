@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __fsMockRepo: ReturnType<typeof makeFsMock> | undefined;
 }
 
