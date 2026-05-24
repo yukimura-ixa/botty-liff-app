@@ -59,6 +59,11 @@ Three changes:
 - Form: 5 inputs (fullName, classGrade, classRoom, totalPoints, status). Save + Cancel + (potential) Confirm modal for destructive changes.
 - Existing role-change action remains a separate inline control on the same row.
 
+**1.4 Admin tile on `/home`.**
+- New tile in the home page action grid: label `"จัดการระบบ"`, href `/admin`, emoji `⚙️`, background `t.ink` (or similar dark theme tone).
+- Visible only when `role === "admin"` (mirroring the existing `isStaff` / `isTeacherOrAdmin` conditional spread pattern in `src/app/home/page.tsx`).
+- No new state; reuses the existing `role` value already in scope.
+
 ## Section 2 — Components & Data Flow
 
 ### 2.1 Files touched
@@ -70,6 +75,7 @@ Three changes:
 | `src/server/user/repo.test.ts` (new) | Unit tests covering validation, noop, audit-doc shape, multi-field patch. |
 | `src/lib/api.ts` | Add `adminUpdateUser(uid, patch)` client wrapper + `UserPatch` type. |
 | `src/app/admin/page.tsx` | Inline expand form on users tab; confirm modal for destructive changes; toast on success/noop/error. |
+| `src/app/home/page.tsx` | Admin-only tile linking to `/admin` (added via conditional spread mirroring `isTeacherOrAdmin` pattern). |
 
 ### 2.2 Firestore layout (new path only)
 
@@ -253,6 +259,7 @@ Mock pattern follows `src/server/approver/repo.test.ts` and `src/server/user/rol
 - Confirm modal triggers on destructive changes (status to inactive, totalPoints big-drop / zero).
 - `userEdits` Firestore collection captures every successful edit with `targetUid`, `byUid`, `changes`, `createdAt`.
 - Inactive users visually distinguished in admin list with muted styling + "(ไม่ใช้งาน)" badge.
+- Admin-only `"จัดการระบบ"` tile rendered on `/home` only when `role === "admin"`; links to `/admin`.
 - All existing tests pass. New `src/server/user/repo.test.ts` covers the unit-test list in §4.1.
 - `npx tsc --noEmit` clean.
 - No new lint errors introduced (baseline: 12 pre-existing errors after teacher-promote branch merge).
