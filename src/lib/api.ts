@@ -247,8 +247,11 @@ export type UserRow = {
   uid: string;
   fullName: string;
   classKey: string;
+  classGrade: number;
+  classRoom: number;
   role: UserRole;
   totalPoints: number;
+  status: string;
 };
 
 export type RoleChange = {

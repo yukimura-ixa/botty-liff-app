@@ -176,10 +176,10 @@ export default function AdminPage() {
     setEditErr('');
     setEditForm({
       fullName: u.fullName ?? '',
-      classGrade: String((u as unknown as { classGrade?: number }).classGrade ?? 0),
-      classRoom: String((u as unknown as { classRoom?: number }).classRoom ?? 0),
+      classGrade: String(u.classGrade),
+      classRoom: String(u.classRoom),
       totalPoints: String(u.totalPoints ?? 0),
-      status: ((u as unknown as { status?: string }).status === 'inactive' ? 'inactive' : 'active'),
+      status: (u.status === 'inactive' ? 'inactive' : 'active'),
     });
   }
 
@@ -191,7 +191,7 @@ export default function AdminPage() {
 
   function isDestructive(u: UserRow): boolean {
     const origPoints = u.totalPoints ?? 0;
-    const origStatus = (u as unknown as { status?: string }).status === 'inactive' ? 'inactive' : 'active';
+    const origStatus = u.status === 'inactive' ? 'inactive' : 'active';
     const newPoints = Number(editForm.totalPoints);
     const statusDestructive = origStatus === 'active' && editForm.status === 'inactive';
     const pointsZero = newPoints === 0 && origPoints > 0;
@@ -207,14 +207,14 @@ export default function AdminPage() {
       const newFullName = editForm.fullName.trim();
       if (newFullName !== (u.fullName ?? '')) patch.fullName = newFullName;
       const newGrade = Number(editForm.classGrade);
-      const origGrade = (u as unknown as { classGrade?: number }).classGrade ?? 0;
+      const origGrade = u.classGrade;
       if (newGrade !== origGrade) patch.classGrade = newGrade;
       const newRoom = Number(editForm.classRoom);
-      const origRoom = (u as unknown as { classRoom?: number }).classRoom ?? 0;
+      const origRoom = u.classRoom;
       if (newRoom !== origRoom) patch.classRoom = newRoom;
       const newPoints = Number(editForm.totalPoints);
       if (newPoints !== u.totalPoints) patch.totalPoints = newPoints;
-      const origStatus = (u as unknown as { status?: string }).status === 'inactive' ? 'inactive' : 'active';
+      const origStatus = u.status === 'inactive' ? 'inactive' : 'active';
       if (editForm.status !== origStatus) patch.status = editForm.status;
 
       if (Object.keys(patch).length === 0) {
@@ -410,7 +410,7 @@ export default function AdminPage() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {users.map((u, i) => {
-                const isInactive = (u as unknown as { status?: string }).status === 'inactive';
+                const isInactive = u.status === 'inactive';
                 const expanded = expandedUid === u.uid;
                 return (
                   <div key={u.uid} style={{

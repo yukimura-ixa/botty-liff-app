@@ -19,8 +19,11 @@ export async function listAdminUsers(input: ListInput): Promise<{ users: AdminPr
       uid: d.id,
       fullName: typeof data.fullName === "string" ? data.fullName : "",
       classKey: typeof data.classKey === "string" ? data.classKey : "",
+      classGrade: typeof data.classGrade === "number" ? data.classGrade : 0,
+      classRoom: typeof data.classRoom === "number" ? data.classRoom : 0,
       role: (data.role ?? "student") as AdminProfile["role"],
       totalPoints: typeof data.totalPoints === "number" ? data.totalPoints : 0,
+      status: typeof data.status === "string" ? data.status : "active",
     };
   });
   const filtered = filterAndSortProfiles(raw, input.role, input.q);

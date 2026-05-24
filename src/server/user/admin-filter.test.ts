@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { filterAndSortProfiles, type AdminProfile } from "./admin-filter";
 
 const mk = (uid: string, fullName: string, role: AdminProfile["role"] = "student"): AdminProfile => ({
-  uid, fullName, role, classKey: "", totalPoints: 0,
+  uid, fullName, role, classKey: "", classGrade: 0, classRoom: 0, totalPoints: 0, status: "active",
 });
 
 describe("filterAndSortProfiles", () => {

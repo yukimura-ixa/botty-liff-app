@@ -2,8 +2,11 @@ export type AdminProfile = {
   uid: string;
   fullName: string;
   classKey: string;
+  classGrade: number;
+  classRoom: number;
   role: "student" | "council" | "teacher" | "admin";
   totalPoints: number;
+  status: string;
 };
 
 function containsCI(s: string, sub: string): boolean {
