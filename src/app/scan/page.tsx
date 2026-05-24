@@ -217,6 +217,24 @@ export default function ScanPage() {
           gap: 12,
         }}
       >
+        {result.preview && (
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              background: "rgba(255,193,7,0.12)",
+              border: "1px solid rgba(255,193,7,0.4)",
+              borderRadius: 14,
+              padding: "10px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.95)",
+              textAlign: "center",
+            }}
+          >
+            โหมดทดสอบ — ไม่ได้รับคะแนน
+          </div>
+        )}
         {(() => {
           const awarded = approverStatus === "confirmed" || !approverPrompt;
           return (
@@ -237,7 +255,7 @@ export default function ScanPage() {
                 />
               )}
               <div style={{ fontSize: 20, fontWeight: 800 }}>
-                {awarded ? "สแกนสำเร็จ! 🎉" : "ตรวจพบขวด PET"}
+                {result.preview ? "ตรวจพบขวด PET (โหมดทดสอบ)" : awarded ? "สแกนสำเร็จ! 🎉" : "ตรวจพบขวด PET"}
               </div>
               <div
                 style={{
@@ -248,7 +266,7 @@ export default function ScanPage() {
                   fontSize: 56,
                 }}
               >
-                {approverStatus === "expired" ? "⏱️" : awarded ? "♻️" : "🔒"}
+                {result.preview ? "🧪" : approverStatus === "expired" ? "⏱️" : awarded ? "♻️" : "🔒"}
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
                 <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
@@ -266,7 +284,11 @@ export default function ScanPage() {
                   นับให้สูงสุด {result.pointedItems} ขวด/สแกน
                 </div>
               )}
-              {awarded ? (
+              {result.preview ? (
+                <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
+                  สแกนตรวจสอบเรียบร้อย
+                </div>
+              ) : awarded ? (
                 <>
                   <div style={{ fontSize: 72, fontWeight: 900, color: t.gold, lineHeight: 1 }}>
                     +{result.totalPoints}
@@ -318,7 +340,7 @@ export default function ScanPage() {
           );
         })()}
         {/* Rank tree — only after approval */}
-        {approverStatus === "confirmed" && (
+        {!result.preview && approverStatus === "confirmed" && (
           <div style={{ textAlign: 'center', paddingTop: 8 }}>
             {result.newRank !== result.prevRank && (
               <div style={{
@@ -344,7 +366,7 @@ export default function ScanPage() {
             `}</style>
           </div>
         )}
-        {approverPrompt && approverStatus !== "confirmed" && approverStatus !== "expired" && (
+        {!result.preview && approverPrompt && approverStatus !== "confirmed" && approverStatus !== "expired" && (
           <div style={{
             background: "rgba(255,255,255,0.15)",
             border: "1px solid rgba(255,255,255,0.3)",
@@ -378,7 +400,7 @@ export default function ScanPage() {
             </button>
           </div>
         )}
-        {approverStatus === "confirmed" && (
+        {!result.preview && approverStatus === "confirmed" && (
           <div style={{
             background: "rgba(255,255,255,0.2)",
             borderRadius: 12,

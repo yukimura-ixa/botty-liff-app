@@ -106,6 +106,8 @@ export interface ScanResult {
   pendingId?: string
   expiresInSec?: number
   annotatedImage?: string
+  preview?: boolean
+  awarded?: boolean
 }
 
 export function uploadScan(image: File, clientConfidence?: number) {
