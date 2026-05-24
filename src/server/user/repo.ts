@@ -49,6 +49,99 @@ async function readUserFromStore(uid: string): Promise<Profile | null> {
 
 export const getUser = cache(readUserFromStore);
 
+export type UserPatch = {
+  fullName?: string;
+  classGrade?: number;
+  classRoom?: number;
+  totalPoints?: number;
+  status?: "active" | "inactive";
+};
+
+export type UserEditChange = { field: string; oldValue: unknown; newValue: unknown };
+
+export async function updateUserProfile(
+  targetUid: string,
+  actorUid: string,
+  patch: UserPatch,
+): Promise<{ editId?: string; changes?: UserEditChange[]; noop?: true }> {
+  if (targetUid === actorUid) throw new Error("self");
+
+  const fs = fbFirestore();
+  const userRef = fs.collection("users").doc(targetUid);
+  const editId = crypto.randomUUID();
+  const editRef = fs.collection("userEdits").doc(editId);
+
+  let noop = false;
+  let computedChanges: UserEditChange[] = [];
+
+  await fs.runTransaction(async (tx) => {
+    const snap = await tx.get(userRef);
+    if (!snap.exists) throw new Error("not_found");
+    const prof = snap.data() ?? {};
+    const role = typeof prof.role === "string" ? prof.role : "student";
+    if (role === "teacher" || role === "admin") throw new Error("forbidden_target");
+
+    const updates: Record<string, unknown> = {};
+    const diffs: UserEditChange[] = [];
+
+    if (patch.fullName !== undefined && patch.fullName !== prof.fullName) {
+      updates.fullName = patch.fullName;
+      diffs.push({ field: "fullName", oldValue: prof.fullName, newValue: patch.fullName });
+    }
+    if (patch.classGrade !== undefined && patch.classGrade !== prof.classGrade) {
+      updates.classGrade = patch.classGrade;
+      diffs.push({ field: "classGrade", oldValue: prof.classGrade, newValue: patch.classGrade });
+    }
+    if (patch.classRoom !== undefined && patch.classRoom !== prof.classRoom) {
+      updates.classRoom = patch.classRoom;
+      diffs.push({ field: "classRoom", oldValue: prof.classRoom, newValue: patch.classRoom });
+    }
+    if ("classGrade" in updates || "classRoom" in updates) {
+      const newGrade = (updates.classGrade as number | undefined) ?? (prof.classGrade as number | undefined) ?? 0;
+      const newRoom = (updates.classRoom as number | undefined) ?? (prof.classRoom as number | undefined) ?? 0;
+      const newKey = `${newGrade}-${newRoom}`;
+      if (newKey !== prof.classKey) {
+        updates.classKey = newKey;
+        diffs.push({ field: "classKey", oldValue: prof.classKey, newValue: newKey });
+      }
+    }
+    if (patch.totalPoints !== undefined && patch.totalPoints !== prof.totalPoints) {
+      updates.totalPoints = patch.totalPoints;
+      diffs.push({ field: "totalPoints", oldValue: prof.totalPoints, newValue: patch.totalPoints });
+    }
+    if (patch.status !== undefined && patch.status !== prof.status) {
+      updates.status = patch.status;
+      diffs.push({ field: "status", oldValue: prof.status, newValue: patch.status });
+    }
+
+    if (diffs.length === 0) {
+      noop = true;
+      return;
+    }
+
+    updates.updatedAt = new Date();
+    tx.update(userRef, updates);
+    tx.set(editRef, {
+      targetUid,
+      byUid: actorUid,
+      changes: diffs,
+      createdAt: new Date(),
+    });
+    computedChanges = diffs;
+  });
+
+  if (noop) return { noop: true };
+
+  bust(`user:${targetUid}`);
+  if (computedChanges.some((c) => c.field === "classGrade" || c.field === "classRoom" || c.field === "classKey")) {
+    bust("classes");
+  }
+  if (computedChanges.some((c) => c.field === "totalPoints" || c.field === "status")) {
+    bust("leaderboard");
+  }
+  return { editId, changes: computedChanges };
+}
+
 export async function createPending(lineUserId: string): Promise<Profile> {
   const p = defaultPendingProfile(lineUserId, new Date());
   await fbFirestore().collection(COL).doc(p.uid).set(p);
