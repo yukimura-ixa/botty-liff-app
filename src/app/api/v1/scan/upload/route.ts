@@ -14,6 +14,7 @@ import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
 import { createPending, hasOutstandingPending } from "@/server/scan/pending";
 import { awardScan } from "@/server/scan/award";
 import { isDuplicateScan } from "@/server/scan/repo";
+import { recordPreviewScan } from "@/server/scan/preview";
 import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
 import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-limit";
 
@@ -76,6 +77,73 @@ export async function POST(req: NextRequest) {
   if (!SCAN_ELIGIBLE_ROLES.has(prof.role) || prof.status !== "active") {
     console.warn("[scan/upload] 403 not eligible", { uid: ctx.uid, role: prof.role, status: prof.status });
     return jsonError(403, "not eligible");
+  }
+
+  if (prof.role !== "student") {
+    let det;
+    try { det = await detect(detectorConfigFromEnv(), buf); }
+    catch (err) {
+      console.error("detector error", ctx.uid, err);
+      return jsonError(500, "detector error");
+    }
+    if (!det.accepted) {
+      return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
+        status: 422, headers: { "Content-Type": "application/json" },
+      });
+    }
+    const scanId = ulid();
+    let imageUrl: string;
+    try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
+    catch (err) {
+      console.error("blob upload error", ctx.uid, err);
+      return jsonError(500, "storage");
+    }
+    const capturedAt = new Date();
+    const hash = imageHash(buf);
+    let phash: string | undefined;
+    try { phash = await perceptualHash(buf); } catch { /* best-effort */ }
+    const phashBkt = phash ? phashBucket(phash) : undefined;
+    const rawItems = Number.isFinite(det.itemCount) ? Math.floor(det.itemCount) : 1;
+    const pointedItems = Math.min(DEFAULT_POINTS_CONFIG.maxItemsPerScan, Math.max(1, rawItems));
+
+    try {
+      await recordPreviewScan({
+        uid: ctx.uid,
+        scanId,
+        classKey: prof.classKey ?? "",
+        detectedClass: det.class,
+        itemCount: det.itemCount,
+        confidence: det.confidence,
+        clientConf,
+        imagePath: imageUrl,
+        imageHash: hash,
+        phash,
+        phashBucket: phashBkt,
+        capturedAt,
+        localDate,
+      });
+    } catch (err) {
+      console.error("preview scan write failed", ctx.uid, err);
+      return jsonError(500, "preview write");
+    }
+
+    return jsonOk({
+      scanId,
+      detectedClass: det.class,
+      confidence: det.confidence,
+      itemCount: det.itemCount,
+      pointedItems,
+      basePoints: 0,
+      streakBonus: 0,
+      totalPoints: 0,
+      newTotalPoints: prof.totalPoints ?? 0,
+      streakDays: prof.streakDays ?? 0,
+      prevRank: prof.rank ?? "ต้นกล้า",
+      newRank: prof.rank ?? "ต้นกล้า",
+      awarded: false,
+      preview: true,
+      annotatedImage: det.annotatedImage,
+    });
   }
 
   if (prof.lastScanAt) {
