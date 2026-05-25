@@ -16,6 +16,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   }
   if (!hasRole(ctx, "admin")) return jsonError(403, "forbidden");
   const { uid } = await params;
+  if (!uid || uid.length > 128 || !/^[A-Za-z0-9_-]+$/.test(uid)) {
+    return jsonError(400, "invalid uid");
+  }
 
   let body: { role?: string; reason?: string };
   try { body = await req.json(); }
@@ -37,6 +40,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
     if (msg === "not_found") return jsonError(404, "user not found");
     if (msg === "demote_admin") return jsonError(403, "cannot demote admin");
     console.error("change role failed", err);
-    return jsonError(500, msg);
+    return jsonError(500, "internal");
   }
 }
