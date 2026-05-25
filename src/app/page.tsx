@@ -22,11 +22,12 @@ export default function LoginPage() {
     async function run() {
       try {
         await auth.authStateReady();
-        if (auth.currentUser) {
-          router.replace("/home");
-          return;
-        }
+        // Always re-run authLine so the custom token's `role` claim stays
+        // fresh — an admin promoting/demoting a user must take effect on the
+        // next LIFF open, not after a manual sign-out. signInWithCustomToken
+        // replaces the existing session, so this is safe when already signed in.
         sessionStorage.removeItem("firebaseIdToken");
+        sessionStorage.removeItem("role");
 
         const liff = await initLiff();
 
