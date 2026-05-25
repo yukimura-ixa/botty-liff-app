@@ -120,6 +120,30 @@ export default function TeacherDashPage() {
       </svg>
 
       <header style={{ padding: "60px 22px 18px", position: "relative" }}>
+        <Link
+          href="/home"
+          aria-label="กลับ"
+          style={{
+            position: "absolute",
+            top: 22,
+            left: 16,
+            width: 36,
+            height: 36,
+            borderRadius: 12,
+            background: "white",
+            border: `1px solid ${t.mint}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: t.forest,
+            textDecoration: "none",
+            fontSize: 18,
+            fontWeight: 700,
+            boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+          }}
+        >
+          ←
+        </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
             style={{
