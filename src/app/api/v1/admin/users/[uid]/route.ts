@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { verifyBearerTokenWithFreshRole, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
 import { jsonError, jsonNoStore } from "@/server/lib/http";
-import { updateUserProfile, type UserPatch } from "@/server/user/repo";
+import { updateUserProfile, deleteUser, type UserPatch } from "@/server/user/repo";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -71,6 +71,35 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ui
     if (msg === "not_found") return jsonError(404, "user not found");
     if (msg === "forbidden_target") return jsonError(403, "cannot edit teacher or admin profile");
     console.error("admin update user failed", err);
+    return jsonError(500, "internal");
+  }
+}
+
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ uid: string }> }) {
+  let ctx;
+  try { ctx = await verifyBearerTokenWithFreshRole(req); }
+  catch (e) {
+    if (e instanceof AuthError) return jsonError(e.status, e.message);
+    return jsonError(500, "auth");
+  }
+  if (!hasRole(ctx, "admin")) return jsonError(403, "forbidden");
+
+  const { uid } = await params;
+  if (!uid || !UID_RE.test(uid)) return jsonError(400, "invalid uid");
+
+  try {
+    const r = await deleteUser(uid, ctx.uid);
+    if (!r.authDeleted) {
+      return jsonNoStore({ ok: true, editId: r.editId, warning: "auth record delete failed; user may still be able to log in" });
+    }
+    return jsonNoStore({ ok: true, editId: r.editId });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "failed";
+    if (msg === "self") return jsonError(400, "cannot delete own account");
+    if (msg === "not_found") return jsonError(404, "user not found");
+    if (msg === "forbidden_target") return jsonError(403, "cannot delete teacher or admin");
+    console.error("admin delete user failed", err);
     return jsonError(500, "internal");
   }
 }

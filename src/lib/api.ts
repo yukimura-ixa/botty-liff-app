@@ -299,6 +299,14 @@ export function adminUpdateUser(uid: string, patch: UserPatch) {
   );
 }
 
+
+export function adminDeleteUser(uid: string) {
+  return request<{ ok: boolean; editId?: string; warning?: string }>(
+    `/admin/users/${encodeURIComponent(uid)}`,
+    { method: 'DELETE' },
+  );
+}
+
 export function teacherChangeStudentRole(uid: string, role: 'student' | 'council') {
   return request<{ ok: boolean; roleChangeId?: string; noop?: boolean; warning?: string }>(
     `/teacher/students/${encodeURIComponent(uid)}/role`,

@@ -6,7 +6,7 @@ import {
   adminListUsers, adminChangeRole, adminListRoleChanges, adminListUserEdits,
   adminListRoleRequests, adminDecideRoleRequest,
   adminListAdjustments, adminListAdjustRequests, adminDecideAdjustRequest,
-  adminUpdateUser,
+  adminUpdateUser, adminDeleteUser,
   type UserRow, type RoleChange, type UserEdit, type AssignableRole, type RoleRequest,
   type Adjustment, type AdjustRequest,
   type UserPatch,
@@ -67,6 +67,7 @@ export default function AdminPage() {
   const [editErr, setEditErr] = useState('');
   const [editToast, setEditToast] = useState('');
   const [confirmEditOpen, setConfirmEditOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const [changes, setChanges] = useState<RoleChange[]>([]);
   const [changesErr, setChangesErr] = useState("");
@@ -199,6 +200,7 @@ export default function AdminPage() {
     setExpandedUid(null);
     setEditErr('');
     setConfirmEditOpen(false);
+    setConfirmDeleteOpen(false);
   }
 
   function isDestructive(u: UserRow): boolean {
@@ -276,6 +278,26 @@ export default function AdminPage() {
     } finally {
       setEditBusy(false);
       setConfirmEditOpen(false);
+    }
+  }
+
+
+  async function submitDelete(u: UserRow) {
+    setEditBusy(true);
+    setEditErr('');
+    try {
+      const r = await adminDeleteUser(u.uid);
+      const list = await adminListUsers({ role: roleFilter, q });
+      setUsers(list.users ?? []);
+      await refreshUserEdits();
+      setEditToast(r.warning ? 'ลบแล้ว (auth บางส่วนล้มเหลว)' : 'ลบผู้ใช้แล้ว');
+      closeEdit();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'failed';
+      setEditErr(msg);
+    } finally {
+      setEditBusy(false);
+      setConfirmDeleteOpen(false);
     }
   }
 
@@ -586,29 +608,75 @@ export default function AdminPage() {
                         {editErr && (
                           <div style={{ color: t.coral, fontSize: 11, marginTop: 8 }}>{editErr}</div>
                         )}
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                           <button
                             type="button"
-                            onClick={closeEdit}
+                            onClick={() => setConfirmDeleteOpen(true)}
                             disabled={editBusy}
-                            style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}
+                            style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, background: 'transparent', border: `1px solid ${t.coral}`, color: t.coral, cursor: 'pointer', fontFamily: 'inherit' }}
                           >
-                            ยกเลิก
+                            ลบผู้ใช้
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isDestructive(u)) {
-                                setConfirmEditOpen(true);
-                              } else {
-                                submitEdit(u);
-                              }
-                            }}
-                            disabled={editBusy}
-                            style={{ fontSize: 11, padding: '6px 14px', borderRadius: 8, background: t.forest, border: 'none', color: 'white', cursor: 'pointer', fontFamily: 'inherit', opacity: editBusy ? 0.7 : 1 }}
-                          >
-                            {editBusy ? 'กำลังบันทึก...' : 'บันทึก'}
-                          </button>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              type="button"
+                              onClick={closeEdit}
+                              disabled={editBusy}
+                              style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}
+                            >
+                              ยกเลิก
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isDestructive(u)) {
+                                  setConfirmEditOpen(true);
+                                } else {
+                                  submitEdit(u);
+                                }
+                              }}
+                              disabled={editBusy}
+                              style={{ fontSize: 11, padding: '6px 14px', borderRadius: 8, background: t.forest, border: 'none', color: 'white', cursor: 'pointer', fontFamily: 'inherit', opacity: editBusy ? 0.7 : 1 }}
+                            >
+                              {editBusy ? 'กำลังบันทึก...' : 'บันทึก'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {expanded && confirmDeleteOpen && (
+                      <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50,
+                      }}>
+                        <div style={{ background: t.ink, borderRadius: 14, padding: 20, maxWidth: 360, width: '100%', border: `1px solid ${t.coral}` }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: t.coral }}>
+                            ยืนยันการลบผู้ใช้
+                          </div>
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginBottom: 8 }}>
+                            ลบ <strong style={{ color: 'white' }}>{u.fullName || u.uid}</strong>?
+                          </div>
+                          <div style={{ fontSize: 11, color: `${t.coral}cc`, marginBottom: 14, lineHeight: 1.6 }}>
+                            ดำเนินการนี้ไม่สามารถย้อนกลับได้. ผู้ใช้จะถูกลบจาก Firestore + Firebase Auth. ประวัติสแกน/audit จะยังอยู่ในระบบ.
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteOpen(false)}
+                              disabled={editBusy}
+                              style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}
+                            >
+                              ยกเลิก
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => submitDelete(u)}
+                              disabled={editBusy}
+                              style={{ fontSize: 11, padding: '6px 14px', borderRadius: 8, background: t.coral, border: 'none', color: 'white', cursor: 'pointer', fontFamily: 'inherit', opacity: editBusy ? 0.7 : 1, fontWeight: 700 }}
+                            >
+                              {editBusy ? 'กำลังลบ...' : 'ลบถาวร'}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}

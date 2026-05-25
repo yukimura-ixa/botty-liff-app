@@ -142,6 +142,56 @@ export async function updateUserProfile(
   return { editId, changes: computedChanges };
 }
 
+
+export type DeleteUserResult = { ok: true; authDeleted: boolean; editId: string };
+
+export async function deleteUser(targetUid: string, actorUid: string): Promise<DeleteUserResult> {
+  if (targetUid === actorUid) throw new Error("self");
+
+  const fs = fbFirestore();
+  const userRef = fs.collection("users").doc(targetUid);
+  const editId = crypto.randomUUID();
+  const editRef = fs.collection("userEdits").doc(editId);
+
+  let snapshot: Record<string, unknown> | null = null;
+
+  await fs.runTransaction(async (tx) => {
+    const snap = await tx.get(userRef);
+    if (!snap.exists) throw new Error("not_found");
+    const prof = snap.data() ?? {};
+    const role = typeof prof.role === "string" ? prof.role : "student";
+    if (role !== "student" && role !== "council") throw new Error("forbidden_target");
+    snapshot = {
+      fullName: prof.fullName ?? "",
+      role,
+      classKey: prof.classKey ?? "",
+      totalPoints: prof.totalPoints ?? 0,
+      status: prof.status ?? "active",
+    };
+    tx.delete(userRef);
+    tx.set(editRef, {
+      targetUid,
+      byUid: actorUid,
+      changes: [{ field: "_deleted", oldValue: snapshot, newValue: null }],
+      createdAt: new Date(),
+    });
+  });
+
+  bust(`user:${targetUid}`);
+  bust("classes");
+  bust("leaderboard");
+
+  let authDeleted = false;
+  try {
+    await fbAuth().deleteUser(targetUid);
+    authDeleted = true;
+  } catch (err) {
+    console.error("fbAuth deleteUser failed", targetUid, err);
+  }
+
+  return { ok: true, authDeleted, editId };
+}
+
 export async function createPending(lineUserId: string): Promise<Profile> {
   const p = defaultPendingProfile(lineUserId, new Date());
   await fbFirestore().collection(COL).doc(p.uid).set(p);
