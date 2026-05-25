@@ -15,7 +15,7 @@ export type Profile = {
   lastScanLocalDate: string;
   dailyScans: number;
   dailyScanDate: string;
-  status: "pending_onboard" | "active";
+  status: "pending_onboard" | "active" | "inactive";
   consent: boolean;
   createdAt: Date;
   updatedAt: Date;

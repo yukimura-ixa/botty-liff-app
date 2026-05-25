@@ -41,6 +41,9 @@ export async function verifyBearerTokenWithFreshRole(req: Request): Promise<Auth
   const ctx = await verifyBearerToken(req);
   const prof = await getUser(ctx.uid);
   if (!prof) throw new AuthError(401, "profile not found");
+  if (prof.status === 'inactive') {
+    throw new AuthError(403, 'account inactive');
+  }
   if (prof.role !== ctx.role) {
     throw new AuthError(403, "role changed; please sign in again");
   }

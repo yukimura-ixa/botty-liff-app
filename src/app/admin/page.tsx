@@ -174,6 +174,7 @@ export default function AdminPage() {
   function openEdit(u: UserRow) {
     setExpandedUid(u.uid);
     setEditErr('');
+    setConfirmEditOpen(false);
     setEditForm({
       fullName: u.fullName ?? '',
       classGrade: String(u.classGrade),
@@ -224,10 +225,10 @@ export default function AdminPage() {
       }
 
       const r = await adminUpdateUser(u.uid, patch);
-      setEditToast(r.noop ? 'ไม่มีการเปลี่ยนแปลง' : 'บันทึกแล้ว');
-      closeEdit();
       const list = await adminListUsers({ role: roleFilter, q });
       setUsers(list.users ?? []);
+      setEditToast(r.noop ? 'ไม่มีการเปลี่ยนแปลง' : 'บันทึกแล้ว');
+      closeEdit();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'failed';
       setEditErr(msg);
