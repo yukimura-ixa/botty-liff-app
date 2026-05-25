@@ -12,15 +12,14 @@ export type Kpis = {
 
 export async function getKPIs(): Promise<Kpis> {
   const fs = fbFirestore();
-  const studentSnap = await fs.collection("users")
-    .where("role", "==", "student")
-    .select("totalPoints", "totalScans")
-    .get();
-  let totalPoints = 0;
-  for (const d of studentSnap.docs) {
-    const data = d.data();
-    totalPoints += typeof data.totalPoints === "number" ? data.totalPoints : 0;
-  }
+  const studentQ = fs.collection("users").where("role", "==", "student");
+  const studentAgg = await studentQ.aggregate({
+    count: AggregateField.count(),
+    totalPoints: AggregateField.sum("totalPoints"),
+  }).get();
+  const studentCount = typeof studentAgg.data().count === "number" ? studentAgg.data().count : 0;
+  const totalPoints = typeof studentAgg.data().totalPoints === "number" ? studentAgg.data().totalPoints : 0;
+
   const today = bangkokDate(new Date());
   let bottlesToday = 0;
   try {
@@ -39,7 +38,7 @@ export async function getKPIs(): Promise<Kpis> {
   } catch { /* non-fatal */ }
 
   return {
-    studentCount: studentSnap.size,
+    studentCount,
     bottlesToday,
     totalPoints,
     co2KgReduced: co2KgFromBottles(totalBottles),
