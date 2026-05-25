@@ -75,7 +75,7 @@ export async function changeRoleAsTeacher(
     if (!profSnap.exists) throw new Error("not_found");
     const prof = profSnap.data() ?? {};
     const current = typeof prof.role === "string" ? prof.role : "student";
-    if (current === "teacher" || current === "admin") throw new Error("forbidden_target");
+    if (current !== "student" && current !== "council") throw new Error("forbidden_target");
     if (current === newRole) {
       noop = true;
       return;

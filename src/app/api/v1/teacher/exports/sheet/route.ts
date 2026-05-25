@@ -7,7 +7,6 @@ import { getUser } from "@/server/user/repo";
 import { exportSheet, cacheKeyFor, getCachedSheet, setCachedSheet, type AdjustmentRow } from "@/server/teacher/sheets/exporter";
 import type { ScanRow } from "@/server/teacher/sheets/rows";
 import { bangkokDate } from "@/server/scan/time";
-import { httpsUrl } from "@/server/scan/storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -134,7 +133,7 @@ export async function POST(req: NextRequest) {
       totalPoints: intOf(data.totalPoints),
       confidence: floatOf(data.confidence),
       imagePath: strOf(data.imagePath),
-      imageURL: body.includeImageLinks && strOf(data.imagePath) ? httpsUrl(strOf(data.imagePath)) : "",
+      imageURL: body.includeImageLinks ? strOf(data.imagePath) : "",
       streakDays: pi?.streakDays ?? 0,
     };
   });

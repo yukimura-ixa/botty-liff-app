@@ -13,7 +13,7 @@ function intOf(v: unknown): number {
 export async function listClasses(): Promise<ClassEntry[]> {
   const cached = classesCache.get("all");
   if (cached) return cached;
-  const snap = await fbFirestore().collection("classes").get();
+  const snap = await fbFirestore().collection("classes").limit(500).get();
   const rows: ClassEntry[] = snap.docs.map((d) => {
     const data = d.data() ?? {};
     return {

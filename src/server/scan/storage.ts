@@ -18,10 +18,6 @@ export async function uploadScanImage(uid: string, scanId: string, bytes: Buffer
   return blob.url;
 }
 
-export function httpsUrl(storedPath: string): string {
-  return storedPath;
-}
-
 export async function deleteScanImage(blobUrl: string): Promise<void> {
   if (!blobUrl) return;
   if (!blobUrl.startsWith("https://")) return;

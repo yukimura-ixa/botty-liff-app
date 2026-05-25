@@ -84,7 +84,7 @@ export async function getLatestRoleRequestForUser(uid: string): Promise<RoleRequ
 
 export async function listPendingRoleRequests(): Promise<RoleRequest[]> {
   const fs = fbFirestore();
-  const snap = await fs.collection(COLLECTION).where("status", "==", "pending").orderBy("createdAt", "asc").get();
+  const snap = await fs.collection(COLLECTION).where("status", "==", "pending").orderBy("createdAt", "asc").limit(200).get();
   return snap.docs.map((d) => rowFromDoc(d.id, d.data() ?? {}));
 }
 
