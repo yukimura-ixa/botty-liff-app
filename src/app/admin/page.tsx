@@ -200,6 +200,35 @@ export default function AdminPage() {
     return statusDestructive || pointsZero || pointsBigDrop;
   }
 
+  function changedFields(u: UserRow): Array<{ label: string; oldValue: string; newValue: string }> {
+    const out: Array<{ label: string; oldValue: string; newValue: string }> = [];
+    const newFullName = editForm.fullName.trim();
+    if (newFullName !== (u.fullName ?? '')) {
+      out.push({ label: 'ชื่อ-สกุล', oldValue: u.fullName || '—', newValue: newFullName || '—' });
+    }
+    const newGrade = Number(editForm.classGrade);
+    if (newGrade !== (u.classGrade ?? 0)) {
+      out.push({ label: 'ชั้น', oldValue: String(u.classGrade ?? 0), newValue: String(newGrade) });
+    }
+    const newRoom = Number(editForm.classRoom);
+    if (newRoom !== (u.classRoom ?? 0)) {
+      out.push({ label: 'ห้อง', oldValue: String(u.classRoom ?? 0), newValue: String(newRoom) });
+    }
+    const newPoints = Number(editForm.totalPoints);
+    if (newPoints !== u.totalPoints) {
+      out.push({ label: 'คะแนน', oldValue: u.totalPoints.toLocaleString(), newValue: newPoints.toLocaleString() });
+    }
+    const origStatus = u.status === 'inactive' ? 'inactive' : 'active';
+    if (editForm.status !== origStatus) {
+      out.push({
+        label: 'สถานะ',
+        oldValue: origStatus === 'inactive' ? 'ไม่ใช้งาน' : 'ใช้งาน',
+        newValue: editForm.status === 'inactive' ? 'ไม่ใช้งาน' : 'ใช้งาน',
+      });
+    }
+    return out;
+  }
+
   async function submitEdit(u: UserRow) {
     setEditBusy(true);
     setEditErr('');
@@ -580,8 +609,20 @@ export default function AdminPage() {
                           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'white' }}>
                             ยืนยันการเปลี่ยนแปลง
                           </div>
-                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 14 }}>
-                            การเปลี่ยนแปลงนี้อาจส่งผลกระทบ (ลบสถานะใช้งาน หรือ ลดคะแนนลงมาก). ดำเนินการต่อ?
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 10 }}>
+                            ตรวจสอบการเปลี่ยนแปลง:
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                            {changedFields(u).map((c) => (
+                              <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 11, padding: '6px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <span style={{ color: `${t.mint}aa`, fontFamily: MONO, letterSpacing: 0.4 }}>{c.label}</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'white', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <span style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'line-through' }}>{c.oldValue}</span>
+                                  <span style={{ color: t.gold }}>→</span>
+                                  <span style={{ fontWeight: 700 }}>{c.newValue}</span>
+                                </span>
+                              </div>
+                            ))}
                           </div>
                           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                             <button
