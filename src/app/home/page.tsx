@@ -416,6 +416,7 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+      <BottomNav />
     </main>
   );
 }
