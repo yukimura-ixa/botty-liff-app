@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (reason.length > 200) return jsonError(400, "reason max 200");
 
   try {
-    await decideRoleRequest(id, ctx.uid, body.approve, reason || undefined);
+    await decideRoleRequest(id, ctx.uid, body.approve, reason || undefined, { allowSelf: true });
     return jsonNoStore({ ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "failed";
