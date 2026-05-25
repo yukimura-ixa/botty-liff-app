@@ -314,6 +314,18 @@ export function teacherChangeStudentRole(uid: string, role: 'student' | 'council
   );
 }
 
+
+export function teacherListRoleRequests() {
+  return request<{ requests: RoleRequest[] }>('/teacher/role-requests')
+}
+
+export function teacherDecideRoleRequest(id: string, approve: boolean, reason?: string) {
+  return request<{ ok: boolean }>(`/teacher/role-requests/${encodeURIComponent(id)}/decide`, {
+    method: 'POST',
+    body: JSON.stringify({ approve, reason }),
+  })
+}
+
 export function adminListRoleChanges(targetUid?: string): Promise<{ changes: RoleChange[] }> {
   const p = new URLSearchParams();
   if (targetUid) p.set('targetUid', targetUid);
