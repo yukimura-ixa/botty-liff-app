@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
 import {
-  adminListUsers, adminChangeRole, adminListRoleChanges,
+  adminListUsers, adminChangeRole, adminListRoleChanges, adminListUserEdits,
   adminListRoleRequests, adminDecideRoleRequest,
   adminListAdjustments, adminListAdjustRequests, adminDecideAdjustRequest,
   adminUpdateUser,
-  type UserRow, type RoleChange, type AssignableRole, type RoleRequest,
+  type UserRow, type RoleChange, type UserEdit, type AssignableRole, type RoleRequest,
   type Adjustment, type AdjustRequest,
   type UserPatch,
 } from "@/lib/api";
@@ -77,6 +77,8 @@ export default function AdminPage() {
 
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [adjustmentsErr, setAdjustmentsErr] = useState("");
+  const [userEdits, setUserEdits] = useState<UserEdit[]>([]);
+  const [userEditsErr, setUserEditsErr] = useState("");
   const [adjustReqs, setAdjustReqs] = useState<AdjustRequest[]>([]);
   const [adjustReqsErr, setAdjustReqsErr] = useState("");
   const [adjustReqBusy, setAdjustReqBusy] = useState("");
@@ -110,6 +112,15 @@ export default function AdminPage() {
       setAdjustmentsErr("");
     } catch (e: unknown) {
       setAdjustmentsErr(e instanceof Error ? e.message : "load failed");
+    }
+  }
+  async function refreshUserEdits() {
+    try {
+      const r = await adminListUserEdits();
+      setUserEdits(r.edits ?? []);
+      setUserEditsErr("");
+    } catch (e: unknown) {
+      setUserEditsErr(e instanceof Error ? e.message : "load failed");
     }
   }
   async function refreshAdjustReqs() {
@@ -256,6 +267,7 @@ export default function AdminPage() {
       const r = await adminUpdateUser(u.uid, patch);
       const list = await adminListUsers({ role: roleFilter, q });
       setUsers(list.users ?? []);
+      if (!r.noop) await refreshUserEdits();
       setEditToast(r.noop ? 'ไม่มีการเปลี่ยนแปลง' : 'บันทึกแล้ว');
       closeEdit();
     } catch (e) {
@@ -280,7 +292,7 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => { refreshChanges(); refreshRequests(); refreshAdjustments(); refreshAdjustReqs(); }, []);
+  useEffect(() => { refreshChanges(); refreshRequests(); refreshAdjustments(); refreshAdjustReqs(); refreshUserEdits(); }, []);
 
   async function changeRoleTo(u: UserRow, target: AssignableRole) {
     if (u.role === target) return;
@@ -845,6 +857,40 @@ export default function AdminPage() {
             })}
             {adjustments.length === 0 && (
               <div style={{ padding: 16, textAlign: "center", color: t.muted, fontSize: 12 }}>ยังไม่มีการปรับคะแนน</div>
+            )}
+
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 1.5, color: `${t.mint}aa`, margin: "16px 0 4px" }}>
+              USER EDITS · {userEdits.length}
+            </div>
+            {userEditsErr && (
+              <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12 }}>
+                {userEditsErr}
+              </div>
+            )}
+            {userEdits.map((e) => (
+              <div key={e.id} style={{ ...surfaceDark, padding: "11px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, color: `${t.mint}66`, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    target {e.targetUid.slice(0, 10)}… · by {e.byUid.slice(0, 10)}…
+                  </div>
+                  <div style={{ fontSize: 9.5, color: t.muted, fontFamily: MONO, whiteSpace: "nowrap" }}>
+                    {e.createdAt?.slice(0, 16).replace("T", " ")}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {e.changes.map((c, i) => (
+                    <div key={i} style={{ fontSize: 11, color: "white", fontFamily: MONO, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ color: `${t.mint}aa`, fontSize: 10 }}>{c.field}</span>
+                      <span style={{ color: t.muted, textDecoration: "line-through" }}>{String(c.oldValue ?? "—")}</span>
+                      <span style={{ color: t.gold }}>→</span>
+                      <span style={{ fontWeight: 700 }}>{String(c.newValue ?? "—")}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {userEdits.length === 0 && (
+              <div style={{ padding: 16, textAlign: "center", color: t.muted, fontSize: 12 }}>ยังไม่มีการแก้ไขโปรไฟล์</div>
             )}
           </div>
         )}

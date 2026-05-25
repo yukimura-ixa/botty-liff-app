@@ -312,6 +312,21 @@ export function adminListRoleChanges(targetUid?: string): Promise<{ changes: Rol
   return request(`/admin/role-changes?${p}`);
 }
 
+
+export type UserEdit = {
+  id: string;
+  targetUid: string;
+  byUid: string;
+  changes: UserEditChange[];
+  createdAt: string;
+};
+
+export function adminListUserEdits(targetUid?: string): Promise<{ edits: UserEdit[] }> {
+  const p = new URLSearchParams();
+  if (targetUid) p.set('targetUid', targetUid);
+  return request(`/admin/user-edits?${p}`);
+}
+
 // ── Approver Sessions ─────────────────────────────────────────
 export type ApproverSlotToken = {
   slot: number
