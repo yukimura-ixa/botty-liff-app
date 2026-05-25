@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 
 export const MAX_BLOB_BYTES = 5 * 1024 * 1024;
 
@@ -20,4 +20,12 @@ export async function uploadScanImage(uid: string, scanId: string, bytes: Buffer
 
 export function httpsUrl(storedPath: string): string {
   return storedPath;
+}
+
+export async function deleteScanImage(blobUrl: string): Promise<void> {
+  if (!blobUrl) return;
+  if (!blobUrl.startsWith("https://")) return;
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) throw new Error("BLOB_READ_WRITE_TOKEN missing");
+  await del(blobUrl, { token });
 }
