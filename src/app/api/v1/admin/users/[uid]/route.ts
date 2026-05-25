@@ -7,7 +7,7 @@ import { updateUserProfile, type UserPatch } from "@/server/user/repo";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const UID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+const UID_RE = /^[A-Za-z0-9_:-]{1,128}$/;
 
 function validatePatch(body: Record<string, unknown>): { patch?: UserPatch; error?: string } {
   const patch: UserPatch = {};
