@@ -64,19 +64,25 @@ export async function POST(req: NextRequest) {
   const fromTime = isoDate(body.from);
   const toTime = isoDate(body.to);
   if (!fromTime || !toTime) return jsonError(400, "invalid date");
+  if (toTime.getTime() < fromTime.getTime()) return jsonError(400, "to must be on or after from");
+  const MAX_RANGE_MS = 90 * 86_400_000;
+  if (toTime.getTime() - fromTime.getTime() > MAX_RANGE_MS) return jsonError(400, "date range exceeds 90 days");
   const toExclusive = new Date(toTime.getTime() + 86_400_000);
 
+  const SCAN_LIMIT = 10_000;
   const fs = fbFirestore();
   let scanQuery = fs.collection("scans")
     .where("localDate", ">=", body.from)
     .where("localDate", "<=", body.to)
-    .orderBy("localDate", "asc");
+    .orderBy("localDate", "asc")
+    .limit(SCAN_LIMIT);
   if (body.classKey) {
     scanQuery = fs.collection("scans")
       .where("classKey", "==", body.classKey)
       .where("localDate", ">=", body.from)
       .where("localDate", "<=", body.to)
-      .orderBy("localDate", "asc");
+      .orderBy("localDate", "asc")
+      .limit(SCAN_LIMIT);
   }
 
   const scanSnap = await scanQuery.get();
@@ -102,11 +108,13 @@ export async function POST(req: NextRequest) {
     } catch (err) { console.error("adjustments query failed", err); }
   }
 
-  // Fetch profiles for uid resolution
+  // Fetch profiles in parallel for uid resolution
   const profileMap = new Map<string, { fullName: string; streakDays: number; classKey: string }>();
-  for (const uid of uidSet) {
-    const p = await getUser(uid);
-    if (p) profileMap.set(uid, { fullName: p.fullName, streakDays: p.streakDays, classKey: p.classKey ?? "" });
+  const uids = Array.from(uidSet);
+  const profiles = await Promise.all(uids.map((u) => getUser(u)));
+  for (let i = 0; i < uids.length; i++) {
+    const p = profiles[i];
+    if (p) profileMap.set(uids[i], { fullName: p.fullName, streakDays: p.streakDays, classKey: p.classKey ?? "" });
   }
 
   const rows: ScanRow[] = scanSnap.docs.map((d) => {
