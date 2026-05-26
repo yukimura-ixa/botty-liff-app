@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/shared/BottomNav';
 import { theme as t, getRank } from '@/lib/theme';
 import {
-  getMe, getMyRoleRequest,
-  ApiError, type StudentProfile, type RoleRequest,
+  getMe,
+  ApiError, type StudentProfile,
 } from '@/lib/api';
 
 type Status = 'loading' | 'ok' | 'error';
@@ -15,7 +15,6 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState('');
-  const [roleReq, setRoleReq] = useState<RoleRequest | null>(null);
 
   function load() {
     setStatus('loading');
@@ -24,11 +23,6 @@ export default function ProfilePage() {
       .then(p => {
         setProfile(p);
         setStatus('ok');
-        if (p.role === 'student') {
-          getMyRoleRequest()
-            .then(r => setRoleReq(r.request))
-            .catch(() => { /* non-fatal */ });
-        }
       })
       .catch((e: unknown) => {
         if (e instanceof ApiError && e.status === 404) {
@@ -67,8 +61,7 @@ export default function ProfilePage() {
   }
 
   const rank = getRank(profile?.totalPoints ?? 0);
-  const isStudent = profile?.role === 'student';
-  const hasPending = roleReq?.status === 'pending';
+  const isAdmin = profile?.role === 'admin';
 
   return (
     <main style={{ minHeight: '100dvh', background: t.bone, paddingBottom: 110 }}>
@@ -111,40 +104,33 @@ export default function ProfilePage() {
       </div>
 
       <div style={{ padding: '20px 18px 0' }}>
-        {isStudent && (
+        {isAdmin && (
           <div style={{
             background: 'white', border: `1px solid ${t.mint}`, borderRadius: 14,
             padding: 14, marginBottom: 14,
           }}>
-            <div style={{ fontSize: 12, color: t.muted, fontWeight: 600, marginBottom: 4 }}>
-              บทบาทเจ้าหน้าที่
+            <div style={{ fontSize: 12, color: t.muted, fontWeight: 600, marginBottom: 8 }}>
+              เมนูผู้ดูแล
             </div>
-            {hasPending && (
-              <div style={{ fontSize: 13, color: t.ink, marginBottom: 8 }}>
-                คำขอ <strong>{roleReq?.requestedRole === 'council' ? 'สภานักเรียน' : 'ครู'}</strong>{' '}
-                <span style={{
-                  display: 'inline-block', padding: '2px 8px', borderRadius: 999,
-                  background: `${t.gold}33`, color: t.forest, fontSize: 11, fontWeight: 700,
-                  marginLeft: 4,
-                }}>
-                  ⏳ รออนุมัติ
-                </span>
-              </div>
-            )}
-            {roleReq?.status === 'denied' && (
-              <div style={{ fontSize: 12, color: t.coral, marginBottom: 8 }}>
-                คำขอล่าสุดถูกปฏิเสธ{roleReq.decidedReason ? ` — ${roleReq.decidedReason}` : ''}
-              </div>
-            )}
             <button
-              onClick={() => router.push('/profile/role-request')}
+              onClick={() => router.push('/teacher')}
               style={{
                 width: '100%', height: 44, borderRadius: 12, border: 'none',
                 background: t.moss, color: 'white', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8,
+              }}
+            >
+              แดชบอร์ด
+            </button>
+            <button
+              onClick={() => router.push('/admin')}
+              style={{
+                width: '100%', height: 44, borderRadius: 12, border: `1px solid ${t.mint}`,
+                background: 'white', color: t.forest, fontSize: 13, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              {hasPending ? 'ดูคำขอ' : 'ขอสิทธิ์เจ้าหน้าที่'}
+              ผู้ดูแลระบบ
             </button>
           </div>
         )}

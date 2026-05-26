@@ -210,29 +210,6 @@ export default function TeacherDashPage() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 22px 0" }}>
-        <Link href="/teacher/role-requests" style={{ textDecoration: "none" }}>
-          <div
-            style={{
-              ...surface,
-              padding: 14,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-            }}
-          >
-            <div>
-              <div style={labelStyle}>คำขอเลื่อนตำแหน่ง</div>
-              <div style={{ fontFamily: KANIT, fontWeight: 700, fontSize: 16, color: t.forest, marginTop: 2 }}>
-                สภานักเรียน · รออนุมัติ
-              </div>
-            </div>
-            <div style={{ fontSize: 20, color: t.muted }}>→</div>
-          </div>
-        </Link>
-      </section>
-
       <section style={{ padding: "28px 22px 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
           <div>
