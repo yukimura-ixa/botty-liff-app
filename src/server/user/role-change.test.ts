@@ -53,87 +53,49 @@ async function importMod() {
   return await import("./role-change");
 }
 
-describe("changeRoleAsTeacher", () => {
+describe("changeRole", () => {
   it("rejects self change", async () => {
     globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "student" });
     const mod = await importMod();
-    await expect(mod.changeRoleAsTeacher("u1", "u1", "council")).rejects.toThrow("self");
+    await expect(mod.changeRole("u1", "u1", "student", "r")).rejects.toThrow("self");
   });
 
-  it("rejects newRole = teacher", async () => {
+  it("rejects newRole !== student", async () => {
     globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "student" });
     const mod = await importMod();
     await expect(
-      mod.changeRoleAsTeacher("u1", "u2", "teacher" as never),
+      mod.changeRole("u1", "u2", "admin" as never, "r"),
     ).rejects.toThrow("invalid");
   });
 
-  it("rejects newRole = admin", async () => {
-    globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "student" });
-    const mod = await importMod();
-    await expect(
-      mod.changeRoleAsTeacher("u1", "u2", "admin" as never),
-    ).rejects.toThrow("invalid");
-  });
-
-  it("rejects when target is teacher", async () => {
-    globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "teacher" });
-    const mod = await importMod();
-    await expect(
-      mod.changeRoleAsTeacher("u1", "u2", "council"),
-    ).rejects.toThrow("forbidden_target");
-  });
-
-  it("rejects when target is admin", async () => {
+  it("rejects demoting an admin", async () => {
     globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "admin" });
     const mod = await importMod();
     await expect(
-      mod.changeRoleAsTeacher("u1", "u2", "council"),
-    ).rejects.toThrow("forbidden_target");
+      mod.changeRole("u1", "u2", "student", "r"),
+    ).rejects.toThrow("demote_admin");
   });
 
   it("rejects when target not found", async () => {
     globalThis.__fsMockRoleChange = makeFsMock({ targetExists: false });
     const mod = await importMod();
     await expect(
-      mod.changeRoleAsTeacher("u1", "u2", "council"),
+      mod.changeRole("u1", "u2", "student", "r"),
     ).rejects.toThrow("not_found");
   });
 
-  it("returns noop when target.role === newRole", async () => {
+  it("demotes to student, writes update + audit doc", async () => {
     globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "council" });
     const mod = await importMod();
-    const r = await mod.changeRoleAsTeacher("u1", "u2", "council");
-    expect(r.noop).toBe(true);
-    const ops = globalThis.__fsMockRoleChange!.__ops;
-    expect(ops.some((o) => o.kind === "update")).toBe(false);
-    expect(ops.some((o) => o.kind === "set")).toBe(false);
-  });
-
-  it("promotes student -> council, writes update + audit doc", async () => {
-    globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "student" });
-    const mod = await importMod();
-    const r = await mod.changeRoleAsTeacher("u1", "u2", "council");
-    expect(r.noop).toBeUndefined();
-    expect(r.roleChangeId).toBeTruthy();
+    await mod.changeRole("u1", "u2", "student", "cleanup");
     const ops = globalThis.__fsMockRoleChange!.__ops;
     const upd = ops.find((o) => o.kind === "update" && o.refKey === "users/u1");
     expect(upd).toBeTruthy();
-    expect((upd!.data as { role: string }).role).toBe("council");
+    expect((upd!.data as { role: string }).role).toBe("student");
     const set = ops.find((o) => o.kind === "set" && o.refKey.startsWith("roleChanges/"));
     expect(set).toBeTruthy();
-    expect((set!.data as { fromRole: string; toRole: string; reason: string }).fromRole).toBe("student");
-    expect((set!.data as { fromRole: string; toRole: string; reason: string }).toRole).toBe("council");
-    expect((set!.data as { reason: string }).reason).toBe("");
-  });
-
-  it("demotes council -> student", async () => {
-    globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "council" });
-    const mod = await importMod();
-    const r = await mod.changeRoleAsTeacher("u1", "u2", "student");
-    expect(r.roleChangeId).toBeTruthy();
-    const ops = globalThis.__fsMockRoleChange!.__ops;
-    const upd = ops.find((o) => o.kind === "update" && o.refKey === "users/u1");
-    expect((upd!.data as { role: string }).role).toBe("student");
+    expect((set!.data as { fromRole: string; toRole: string; reason: string }).fromRole).toBe("council");
+    expect((set!.data as { fromRole: string; toRole: string; reason: string }).toRole).toBe("student");
+    expect((set!.data as { reason: string }).reason).toBe("cleanup");
   });
 });
