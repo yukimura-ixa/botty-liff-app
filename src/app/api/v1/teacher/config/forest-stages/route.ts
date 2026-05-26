@@ -15,7 +15,7 @@ export async function PUT(req: NextRequest) {
     if (e instanceof AuthError) return jsonError(e.status, e.message);
     return jsonError(500, "auth");
   }
-  if (!hasRole(ctx, "teacher")) return jsonError(403, "forbidden");
+  if (!hasRole(ctx, "admin")) return jsonError(403, "forbidden");
   let body: unknown;
   try { body = await req.json(); }
   catch { return jsonError(400, "invalid json"); }
