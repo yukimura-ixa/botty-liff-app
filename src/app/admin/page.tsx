@@ -1,13 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
 import {
-  adminListUsers, adminChangeRole, adminListRoleChanges, adminListUserEdits,
-  adminListRoleRequests, adminDecideRoleRequest,
+  adminListUsers, adminListRoleChanges, adminListUserEdits,
   adminListAdjustments, adminListAdjustRequests, adminDecideAdjustRequest,
   adminUpdateUser, adminDeleteUser,
-  type UserRow, type RoleChange, type UserEdit, type AssignableRole, type RoleRequest,
+  type UserRow, type RoleChange, type UserEdit,
   type Adjustment, type AdjustRequest,
   type UserPatch,
 } from "@/lib/api";
@@ -22,13 +20,11 @@ const surfaceDark: React.CSSProperties = {
   borderRadius: 14,
 };
 
-type Tab = "users" | "requests" | "adjust" | "audit";
+type Tab = "users" | "adjust" | "audit";
 
 function roleChip(role: string) {
   const map: Record<string, { bg: string; fg: string }> = {
     admin: { bg: t.gold, fg: t.ink },
-    teacher: { bg: t.moss, fg: "white" },
-    council: { bg: t.forest, fg: "white" },
     student: { bg: `${t.mint}cc`, fg: t.forest },
   };
   const c = map[role] ?? map.student;
@@ -46,13 +42,11 @@ function roleChip(role: string) {
 }
 
 export default function AdminPage() {
-  const router = useRouter();
   const [tab, setTab] = useState<Tab>("users");
 
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roleFilter, setRoleFilter] = useState("");
   const [q, setQ] = useState("");
-  const [busy, setBusy] = useState<string>("");
   const [err, setErr] = useState("");
 
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
@@ -71,10 +65,6 @@ export default function AdminPage() {
 
   const [changes, setChanges] = useState<RoleChange[]>([]);
   const [changesErr, setChangesErr] = useState("");
-
-  const [requests, setRequests] = useState<RoleRequest[]>([]);
-  const [requestsErr, setRequestsErr] = useState("");
-  const [reqBusy, setReqBusy] = useState("");
 
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [adjustmentsErr, setAdjustmentsErr] = useState("");
@@ -95,15 +85,6 @@ export default function AdminPage() {
       setChangesErr("");
     } catch (e: unknown) {
       setChangesErr(e instanceof Error ? e.message : "load failed");
-    }
-  }
-  async function refreshRequests() {
-    try {
-      const r = await adminListRoleRequests();
-      setRequests(r.requests ?? []);
-      setRequestsErr("");
-    } catch (e: unknown) {
-      setRequestsErr(e instanceof Error ? e.message : "load failed");
     }
   }
   async function refreshAdjustments() {
@@ -144,19 +125,6 @@ export default function AdminPage() {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "failed");
     } finally { setAdjustReqBusy(""); }
-  }
-
-  async function decideRequest(rq: RoleRequest, approve: boolean) {
-    if (!confirm(approve ? `อนุมัติ ${rq.requestedRole}?` : `ปฏิเสธคำขอ?`)) return;
-    setReqBusy(rq.id);
-    try {
-      await adminDecideRoleRequest(rq.id, approve);
-      await refreshRequests();
-      await refreshChanges();
-      await refreshUsers();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "failed");
-    } finally { setReqBusy(""); }
   }
 
   useEffect(() => {
@@ -301,34 +269,7 @@ export default function AdminPage() {
     }
   }
 
-  async function refreshUsers() {
-    const myReq = ++usersReqSeq.current;
-    try {
-      const r = await adminListUsers({ role: roleFilter, q });
-      if (myReq !== usersReqSeq.current) return;
-      setUsers(r.users ?? []);
-      setErr("");
-    } catch (e: unknown) {
-      if (myReq !== usersReqSeq.current) return;
-      setErr(e instanceof Error ? e.message : "load failed");
-    }
-  }
-
-  useEffect(() => { refreshChanges(); refreshRequests(); refreshAdjustments(); refreshAdjustReqs(); refreshUserEdits(); }, []);
-
-  async function changeRoleTo(u: UserRow, target: AssignableRole) {
-    if (u.role === target) return;
-    const labels: Record<AssignableRole, string> = { student: "นักเรียน", council: "สภานักเรียน", teacher: "ครู" };
-    if (!confirm(`เปลี่ยน ${u.fullName} → ${labels[target]}?`)) return;
-    setBusy(u.uid);
-    try {
-      await adminChangeRole(u.uid, target);
-      await refreshUsers();
-      await refreshChanges();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "failed");
-    } finally { setBusy(""); }
-  }
+  useEffect(() => { refreshChanges(); refreshAdjustments(); refreshAdjustReqs(); refreshUserEdits(); }, []);
 
   return (
     <main
@@ -367,20 +308,6 @@ export default function AdminPage() {
               CONTROL · SYSTEM
             </span>
           </div>
-          <button
-            onClick={() => router.push("/approver")}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "8px 12px", borderRadius: 10,
-              background: t.gold, color: t.ink, border: "none",
-              fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
-              fontFamily: MONO, cursor: "pointer", textTransform: "uppercase",
-            }}
-            aria-label="เปิด QR เจ้าหน้าที่"
-          >
-            <span style={{ fontSize: 14, lineHeight: 1 }}>▦</span>
-            QR
-          </button>
         </div>
         <h1
           style={{
@@ -406,7 +333,6 @@ export default function AdminPage() {
       >
         {([
           { k: "users" as const, label: "ผู้ใช้", count: users.length },
-          { k: "requests" as const, label: "คำขอบทบาท", count: requests.length },
           { k: "adjust" as const, label: "ปรับคะแนน", count: adjustReqs.length },
           { k: "audit" as const, label: "ประวัติ", count: changes.length + adjustments.length },
         ]).map((it) => {
@@ -460,8 +386,6 @@ export default function AdminPage() {
               >
                 <option value="">ALL</option>
                 <option value="student">STUDENT</option>
-                <option value="council">COUNCIL</option>
-                <option value="teacher">TEACHER</option>
                 <option value="admin">ADMIN</option>
               </select>
             </div>
@@ -483,7 +407,7 @@ export default function AdminPage() {
                   }}>
                     <div style={{
                       display: "grid",
-                      gridTemplateColumns: "24px 1fr auto auto auto",
+                      gridTemplateColumns: "24px 1fr auto auto",
                       alignItems: "center", gap: 10,
                       padding: "11px 14px",
                     }}>
@@ -507,30 +431,7 @@ export default function AdminPage() {
                       </div>
                       <div>{roleChip(u.role)}</div>
                       <div>
-                        {u.role === "admin" ? (
-                          <span style={{ fontSize: 10, color: t.gold, fontFamily: MONO, letterSpacing: 0.5 }}>
-                            LOCKED
-                          </span>
-                        ) : (
-                          <select
-                            disabled={busy === u.uid}
-                            value={u.role}
-                            onChange={(e) => changeRoleTo(u, e.target.value as AssignableRole)}
-                            style={{
-                              padding: "6px 8px", borderRadius: 8,
-                              background: t.ink, color: t.gold, border: `1px solid ${t.forest}`,
-                              fontSize: 11, fontWeight: 700, fontFamily: MONO, letterSpacing: 0.4,
-                              cursor: busy === u.uid ? "default" : "pointer",
-                            }}
-                          >
-                            <option value="student">STUDENT</option>
-                            <option value="council">COUNCIL</option>
-                            <option value="teacher">TEACHER</option>
-                          </select>
-                        )}
-                      </div>
-                      <div>
-                        {u.role !== 'admin' && u.role !== 'teacher' && (
+                        {u.role !== 'admin' && (
                           <button
                             type="button"
                             onClick={() => expanded ? closeEdit() : openEdit(u)}
@@ -733,72 +634,6 @@ export default function AdminPage() {
               )}
             </div>
           </>
-        )}
-
-        {tab === "requests" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {requestsErr && (
-              <div style={{ padding: 10, background: `${t.coral}25`, color: t.coral, borderRadius: 8, fontSize: 12 }}>
-                {requestsErr}
-              </div>
-            )}
-            {requests.map((rq) => (
-              <div
-                key={rq.id}
-                style={{
-                  ...surfaceDark,
-                  padding: "12px 14px",
-                  display: "flex", flexDirection: "column", gap: 8,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10.5, color: `${t.mint}88` }}>
-                      uid {rq.uid.slice(0, 10)}…
-                    </div>
-                    <div style={{ fontSize: 13, color: "white", marginTop: 2 }}>
-                      → <strong>{rq.requestedRole.toUpperCase()}</strong>
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 9, letterSpacing: 1.2, padding: "2px 7px", borderRadius: 999,
-                    background: `${t.gold}33`, color: t.gold, fontWeight: 700,
-                  }}>
-                    PENDING
-                  </span>
-                </div>
-                {rq.reason && (
-                  <div style={{ fontSize: 11.5, color: `${t.mint}aa`, lineHeight: 1.4 }}>
-                    {rq.reason}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    onClick={() => decideRequest(rq, true)}
-                    disabled={reqBusy === rq.id}
-                    style={{
-                      flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
-                      background: t.moss, color: "white", fontSize: 12, fontWeight: 700,
-                      cursor: "pointer", fontFamily: BODY,
-                    }}
-                  >✓ อนุมัติ</button>
-                  <button
-                    onClick={() => decideRequest(rq, false)}
-                    disabled={reqBusy === rq.id}
-                    style={{
-                      flex: 1, padding: "8px 0", borderRadius: 8,
-                      background: "transparent", color: t.coral,
-                      border: `1px solid ${t.coral}`, fontSize: 12, fontWeight: 700,
-                      cursor: "pointer", fontFamily: BODY,
-                    }}
-                  >✕ ปฏิเสธ</button>
-                </div>
-              </div>
-            ))}
-            {requests.length === 0 && (
-              <div style={{ padding: 32, textAlign: "center", color: t.muted, fontSize: 13 }}>ไม่มีคำขอใหม่</div>
-            )}
-          </div>
         )}
 
         {tab === "adjust" && (

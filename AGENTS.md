@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Project: botty-liff-app
 
-School recycling rewards system. LINE LIFF webview. Students scan plastic bottles → AI detects → earns points. Teachers/council/admin approve, adjust, audit.
+School recycling rewards system. LINE LIFF webview. Students scan plastic bottles → AI detects → earns points immediately. Admins adjust, approve large adjustments, and audit.
 
 ## Stack
 - Next.js 16 App Router (React 19, Turbopack)
@@ -30,20 +30,16 @@ vercel env pull      # sync .env.local from Vercel
 ## Routes (`src/app/`)
 - `/` LINE login bootstrap → `/onboard` if new, else `/home`
 - `/home` `/scan` `/history` `/leaderboard` `/profile` — student
-- `/profile/role-request` — request council/teacher
-- `/teacher` `/teacher/student` — teacher dashboard, KPIs, sheets export
-- `/approver` — staff QR rotating 30s (council/teacher/admin)
-- `/admin` — users, role requests, point adjust approval, audit
+- `/teacher` `/teacher/student` — dashboard, KPIs, sheets export, student point adjust (admin-only; paths kept under `/teacher`)
+- `/admin` — users, point adjust approval, audit (admin-only)
 - `/api/v1/*` — backend routes (Node runtime), bearer = Firebase ID token
 
 ## Roles
-`student` → `council` → `teacher` → `admin`. Guard in `src/server/lib/role-guard.ts`. Admins set manually in Firestore (never via API).
+`student` → `admin`. Guard in `src/server/lib/role-guard.ts` (`hasRole(ctx, "admin")`). Admins set manually in Firestore (never via API). Admin absorbs all former teacher powers. (Legacy `council`/`teacher` roles removed; migrate any leftover accounts to `student` via `scripts/downgrade-roles.ts`.)
 
 ## Domain quirks
-- Scan flow: upload image → AI detect class → award base + streak bonus → optional approver QR confirm (`pendingId`).
-- Approver QR: HMAC over `STAFF_QR_SECRET`, 30-second slots, 15-min sessions. See `src/server/approver/token.ts`.
-- Teacher point adjustments: ≤±10 immediate, ±11–50 needs admin approval (dual-approval). `TEACHER_IMMEDIATE_CAP` / `TEACHER_REQUEST_CAP` in `src/lib/api.ts`.
-- Role requests: students only, 7-day cooldown after denial, one pending at a time.
+- Scan flow: upload image → AI detect class → award base + streak bonus immediately. Abuse guards: duplicate-image hash, 60s cooldown, daily limit 20, IP rate limit. (No approver-QR confirmation step.)
+- Point adjustments: ≤±10 immediate, ±11–50 needs admin approval (dual-approval). `TEACHER_IMMEDIATE_CAP` / `TEACHER_REQUEST_CAP` in `src/lib/api.ts`.
 - Storage: migrated GCS → Vercel Blob (commit `ef2da57`). `httpsUrl()` in `src/server/scan/storage.ts:19` still resolves legacy `gs://` rows.
 - Firebase Admin needs `GCP_SERVICE_ACCOUNT_JSON` + `GCP_PROJECT` (Firestore auth, not GCS).
 
@@ -53,7 +49,6 @@ vercel env pull      # sync .env.local from Vercel
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob writes |
 | `GCP_SERVICE_ACCOUNT_JSON` | Firebase Admin + Sheets |
 | `GCP_PROJECT` | Firebase project id |
-| `STAFF_QR_SECRET` | Approver QR HMAC |
 | `NEXT_PUBLIC_LIFF_ID` | LINE LIFF init |
 | `NEXT_PUBLIC_FIREBASE_*` | Firebase client config |
 | `LINE_CHANNEL_ID` | LINE token verify |

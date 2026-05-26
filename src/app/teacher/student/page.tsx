@@ -5,7 +5,6 @@ import { theme as t } from '@/lib/theme';
 import {
   getStudent, exportToSheets, formatClassKey,
   teacherAdjustPoints, teacherCreateAdjustRequest,
-  teacherChangeStudentRole,
   TEACHER_IMMEDIATE_CAP, TEACHER_REQUEST_CAP,
   ApiError, type StudentProfile,
 } from '@/lib/api';
@@ -21,32 +20,6 @@ function TeacherProfileContent() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [adjustOpen, setAdjustOpen] = useState(false);
-  const [roleBusy, setRoleBusy] = useState(false);
-  const [confirmRoleOpen, setConfirmRoleOpen] = useState(false);
-  const [pendingRoleOverride, setPendingRoleOverride] = useState<'student' | 'council' | null>(null);
-  const currentRole: 'student' | 'council' = student?.role === 'council' ? 'council' : 'student';
-  const pendingRole: 'student' | 'council' = pendingRoleOverride ?? currentRole;
-
-  async function submitRoleChange() {
-    if (!student) return;
-    setRoleBusy(true);
-    try {
-      const r = await teacherChangeStudentRole(student.uid, pendingRole);
-      if (r.warning) {
-        alert('เปลี่ยนแล้ว แต่ผู้ใช้ต้องล็อกอินใหม่');
-      } else if (!r.noop) {
-        alert(`เปลี่ยนเป็น ${pendingRole === 'council' ? 'สภานักเรียน' : 'นักเรียน'} แล้ว`);
-      }
-      setPendingRoleOverride(null);
-      load();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'failed';
-      alert(`ผิดพลาด: ${msg}`);
-    } finally {
-      setRoleBusy(false);
-      setConfirmRoleOpen(false);
-    }
-  }
 
   function load() {
     if (!uid) return;
@@ -131,110 +104,12 @@ function TeacherProfileContent() {
         </div>
       </div>
 
-      {student && student.role !== 'teacher' && student.role !== 'admin' && (
-        <div style={{ padding: '14px 18px 0' }}>
-          <div style={{
-            background: 'white', borderRadius: 14, padding: 14,
-            border: `1px solid ${t.mint}`,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.forest, marginBottom: 6 }}>
-              บทบาท
-            </div>
-            <div style={{ fontSize: 11, color: t.muted, marginBottom: 10 }}>
-              ปัจจุบัน:{' '}
-              <span style={{ fontWeight: 700, color: t.forest }}>
-                {student.role === 'council' ? 'สภานักเรียน' : 'นักเรียน'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select
-                value={pendingRole}
-                onChange={(e) => setPendingRoleOverride(e.target.value as 'student' | 'council')}
-                disabled={roleBusy}
-                style={{
-                  flex: 1, height: 38, borderRadius: 10,
-                  border: `1px solid ${t.mint}`, padding: '0 10px',
-                  fontFamily: 'inherit', fontSize: 13, color: t.forest, background: 'white',
-                }}
-              >
-                <option value="student">นักเรียน</option>
-                <option value="council">สภานักเรียน</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => setConfirmRoleOpen(true)}
-                disabled={roleBusy || pendingRole === student.role}
-                style={{
-                  height: 38, padding: '0 14px', borderRadius: 10, border: 'none',
-                  background: t.forest, color: 'white', fontSize: 12.5, fontWeight: 600,
-                  fontFamily: 'inherit',
-                  cursor: roleBusy || pendingRole === student.role ? 'default' : 'pointer',
-                  opacity: roleBusy || pendingRole === student.role ? 0.5 : 1,
-                }}
-              >
-                เปลี่ยนบทบาท
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div style={{ padding: '14px 18px 0', display: 'flex', gap: 8 }}>
         <button onClick={() => setAdjustOpen(true)} disabled={!student} style={{ flex:1,height:42,borderRadius:10,border:`1px solid ${t.mint}`,background:'white',color:t.forest,fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:student?'pointer':'default',opacity:student?1:0.5 }}>ปรับคะแนน</button>
         <button onClick={handleExport} disabled={exporting} style={{ flex:1,height:42,borderRadius:10,border:'none',background:t.forest,color:'white',fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:'pointer',opacity:exporting?0.7:1 }}>{exporting?'...':'ส่งออก Sheet ↗'}</button>
       </div>
       {adjustOpen && student && (
         <AdjustModal uid={uid} student={student} onClose={() => setAdjustOpen(false)} onApplied={load} />
-      )}
-      {confirmRoleOpen && student && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 16, zIndex: 50,
-        }}>
-          <div style={{
-            background: 'white', borderRadius: 18, padding: 20,
-            width: '100%', maxWidth: 360,
-          }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: t.forest, marginBottom: 8 }}>
-              ยืนยันการเปลี่ยนบทบาท
-            </div>
-            <div style={{ fontSize: 13, color: t.muted, marginBottom: 16 }}>
-              เปลี่ยน {student.fullName} เป็น{' '}
-              <span style={{ fontWeight: 700, color: t.forest }}>
-                {pendingRole === 'council' ? 'สภานักเรียน' : 'นักเรียน'}
-              </span>?
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setConfirmRoleOpen(false)}
-                disabled={roleBusy}
-                style={{
-                  height: 38, padding: '0 14px', borderRadius: 10,
-                  border: `1px solid ${t.mint}`, background: 'white', color: t.forest,
-                  fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
-                  cursor: 'pointer',
-                }}
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={submitRoleChange}
-                disabled={roleBusy}
-                style={{
-                  height: 38, padding: '0 14px', borderRadius: 10, border: 'none',
-                  background: t.forest, color: 'white',
-                  fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
-                  cursor: roleBusy ? 'default' : 'pointer', opacity: roleBusy ? 0.7 : 1,
-                }}
-              >
-                {roleBusy ? 'กำลังเปลี่ยน...' : 'ยืนยัน'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </main>
   );

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     if (e instanceof AuthError) return jsonError(e.status, e.message);
     return jsonError(500, "auth");
   }
-  if (!hasRole(ctx, "teacher")) return jsonError(403, "forbidden");
+  if (!hasRole(ctx, "admin")) return jsonError(403, "forbidden");
   try {
     const kpis = await getKPIs();
     return jsonOkCached(kpis, { maxAge: 30, swr: 120 });

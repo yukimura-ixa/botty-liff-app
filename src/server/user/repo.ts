@@ -79,7 +79,7 @@ export async function updateUserProfile(
     if (!snap.exists) throw new Error("not_found");
     const prof = snap.data() ?? {};
     const role = typeof prof.role === "string" ? prof.role : "student";
-    if (role === "teacher" || role === "admin") throw new Error("forbidden_target");
+    if (role === "admin") throw new Error("forbidden_target");
 
     const updates: Record<string, unknown> = {};
     const diffs: UserEditChange[] = [];
@@ -160,7 +160,7 @@ export async function deleteUser(targetUid: string, actorUid: string): Promise<D
     if (!snap.exists) throw new Error("not_found");
     const prof = snap.data() ?? {};
     const role = typeof prof.role === "string" ? prof.role : "student";
-    if (role !== "student" && role !== "council") throw new Error("forbidden_target");
+    if (role !== "student") throw new Error("forbidden_target");
     snapshot = {
       fullName: prof.fullName ?? "",
       role,

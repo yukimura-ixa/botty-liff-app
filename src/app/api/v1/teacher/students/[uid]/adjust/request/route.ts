@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
     if (e instanceof AuthError) return jsonError(e.status, e.message);
     return jsonError(500, "auth");
   }
-  if (!hasRole(ctx, "teacher")) return jsonError(403, "forbidden");
+  if (!hasRole(ctx, "admin")) return jsonError(403, "forbidden");
   const { uid } = await params;
 
   let body: { delta?: number; reason?: string };

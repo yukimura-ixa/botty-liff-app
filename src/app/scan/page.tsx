@@ -2,8 +2,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
-import { uploadScan, confirmScan, ApiError, type ScanResult } from "@/lib/api";
-import { scanQrCode } from "@/lib/liff";
+import { uploadScan, ApiError, type ScanResult } from "@/lib/api";
 import { RankTree } from '@/components/botty/RankTree'
 
 type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate" | "cooldown" | "dailylimit";
@@ -17,10 +16,6 @@ export default function ScanPage() {
   const [error, setError] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(0);
-  const [approverPrompt, setApproverPrompt] = useState<{ pendingId: string; expiresAt: number } | null>(null);
-  const [approverStatus, setApproverStatus] = useState<"idle" | "scanning" | "confirmed" | "expired" | "failed">("idle");
-  const [approverCountdown, setApproverCountdown] = useState(0);
-
   useEffect(() => {
     if (state !== "cooldown" || retryAfter <= 0) return;
     const id = setInterval(() => {
@@ -34,16 +29,6 @@ export default function ScanPage() {
     }, 1000);
     return () => clearInterval(id);
   }, [state, retryAfter]);
-
-  useEffect(() => {
-    if (!approverPrompt || approverStatus === "confirmed" || approverStatus === "expired") return;
-    const id = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((approverPrompt.expiresAt - Date.now()) / 1000));
-      setApproverCountdown(remaining);
-      if (remaining === 0) setApproverStatus("expired");
-    }, 500);
-    return () => clearInterval(id);
-  }, [approverPrompt, approverStatus]);
 
   // Set srcObject after video element mounts (stream state change triggers re-render first)
   useEffect(() => {
@@ -86,11 +71,6 @@ export default function ScanPage() {
           const res = await uploadScan(file);
           setResult(res);
           setState("result");
-          if (res.pendingId && res.expiresInSec) {
-            setApproverPrompt({ pendingId: res.pendingId, expiresAt: Date.now() + res.expiresInSec * 1000 });
-            setApproverStatus("idle");
-            setApproverCountdown(res.expiresInSec);
-          }
         } catch (e: unknown) {
           if (e instanceof ApiError) {
             if (e.status === 429 && e.code === "cooldown") {
@@ -122,25 +102,6 @@ export default function ScanPage() {
       0.9,
     );
   }, [stream]);
-
-  async function handleScanApprover() {
-    if (!approverPrompt) return;
-    setApproverStatus("scanning");
-    try {
-      const token = await scanQrCode();
-      if (!token) {
-        setApproverStatus("idle");
-        alert("ไม่สามารถเปิดสแกนเนอร์ QR ได้");
-        return;
-      }
-      await confirmScan(approverPrompt.pendingId, token);
-      setApproverStatus("confirmed");
-    } catch (e: unknown) {
-      setApproverStatus("failed");
-      const msg = e instanceof Error ? e.message : "ยืนยันไม่สำเร็จ";
-      alert(msg);
-    }
-  }
 
   if (state === "idle")
     return (
@@ -235,112 +196,87 @@ export default function ScanPage() {
             โหมดทดสอบ — ไม่ได้รับคะแนน
           </div>
         )}
-        {(() => {
-          const awarded = approverStatus === "confirmed" || !approverPrompt;
-          return (
-            <>
-              {result.annotatedImage && (
-                <img
-                  src={`data:image/jpeg;base64,${result.annotatedImage}`}
-                  alt="ผลการตรวจจับ"
-                  loading="lazy"
-                  style={{
-                    width: "100%",
-                    maxWidth: 360,
-                    borderRadius: 12,
-                    display: "block",
-                    marginBottom: 12,
-                    objectFit: "contain",
-                  }}
-                />
-              )}
-              <div style={{ fontSize: 20, fontWeight: 800 }}>
-                {result.preview ? "ตรวจพบขวด PET (โหมดทดสอบ)" : awarded ? "สแกนสำเร็จ! 🎉" : "ตรวจพบขวด PET"}
-              </div>
-              <div
-                style={{
-                  width: 130, height: 130, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.12)",
-                  border: "2px solid rgba(255,255,255,0.25)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 56,
-                }}
-              >
-                {result.preview ? "🧪" : approverStatus === "expired" ? "⏱️" : awarded ? "♻️" : "🔒"}
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
-                <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
-                  {result.detectedClass || "PET Bottle"}
-                </span>
-                <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
-                  {(result.confidence * 100).toFixed(0)}% มั่นใจ
-                </span>
-                <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
-                  {result.itemCount} ชิ้น
-                </span>
-              </div>
-              {result.pointedItems !== result.itemCount && (
-                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
-                  นับให้สูงสุด {result.pointedItems} ขวด/สแกน
+        {result.annotatedImage && (
+          <img
+            src={`data:image/jpeg;base64,${result.annotatedImage}`}
+            alt="ผลการตรวจจับ"
+            loading="lazy"
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              borderRadius: 12,
+              display: "block",
+              marginBottom: 12,
+              objectFit: "contain",
+            }}
+          />
+        )}
+        <div style={{ fontSize: 20, fontWeight: 800 }}>
+          {result.preview ? "ตรวจพบขวด PET (โหมดทดสอบ)" : "สแกนสำเร็จ! 🎉"}
+        </div>
+        <div
+          style={{
+            width: 130, height: 130, borderRadius: "50%",
+            background: "rgba(255,255,255,0.12)",
+            border: "2px solid rgba(255,255,255,0.25)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 56,
+          }}
+        >
+          {result.preview ? "🧪" : "♻️"}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+            {result.detectedClass || "PET Bottle"}
+          </span>
+          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+            {(result.confidence * 100).toFixed(0)}% มั่นใจ
+          </span>
+          <span style={{ fontSize: 11, background: "rgba(255,255,255,0.15)", padding: "6px 12px", borderRadius: 999 }}>
+            {result.itemCount} ชิ้น
+          </span>
+        </div>
+        {result.pointedItems !== result.itemCount && (
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+            นับให้สูงสุด {result.pointedItems} ขวด/สแกน
+          </div>
+        )}
+        {result.preview ? (
+          <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
+            สแกนตรวจสอบเรียบร้อย
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 72, fontWeight: 900, color: t.gold, lineHeight: 1 }}>
+              +{result.totalPoints}
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.9, fontWeight: 600 }}>
+              คะแนนที่ได้รับ
+            </div>
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 14, padding: "12px 16px", width: "100%", fontSize: 12,
+              }}
+            >
+              {[
+                ["ขวด PET พื้นฐาน", `+${result.basePoints}`],
+                ["โบนัสสตรีค", `+${result.streakBonus}`],
+              ].map(([k, v], i) => (
+                <div key={i} style={{
+                  display: "flex", justifyContent: "space-between", padding: "4px 0",
+                  borderBottom: i === 0 ? "1px dashed rgba(255,255,255,0.2)" : "none",
+                }}>
+                  <span style={{ opacity: 0.85 }}>{k}</span>
+                  <span style={{ fontWeight: 700, color: t.gold }}>{v}</span>
                 </div>
-              )}
-              {result.preview ? (
-                <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
-                  สแกนตรวจสอบเรียบร้อย
-                </div>
-              ) : awarded ? (
-                <>
-                  <div style={{ fontSize: 72, fontWeight: 900, color: t.gold, lineHeight: 1 }}>
-                    +{result.totalPoints}
-                  </div>
-                  <div style={{ fontSize: 14, opacity: 0.9, fontWeight: 600 }}>
-                    คะแนนที่ได้รับ
-                  </div>
-                  <div
-                    style={{
-                      background: "rgba(255,255,255,0.1)",
-                      border: "1px solid rgba(255,255,255,0.15)",
-                      borderRadius: 14, padding: "12px 16px", width: "100%", fontSize: 12,
-                    }}
-                  >
-                    {[
-                      ["ขวด PET พื้นฐาน", `+${result.basePoints}`],
-                      ["โบนัสสตรีค", `+${result.streakBonus}`],
-                    ].map(([k, v], i) => (
-                      <div key={i} style={{
-                        display: "flex", justifyContent: "space-between", padding: "4px 0",
-                        borderBottom: i === 0 ? "1px dashed rgba(255,255,255,0.2)" : "none",
-                      }}>
-                        <span style={{ opacity: 0.85 }}>{k}</span>
-                        <span style={{ fontWeight: 700, color: t.gold }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : approverStatus === "expired" ? (
-                <>
-                  <div style={{ fontSize: 48, fontWeight: 900, color: "rgba(255,255,255,0.5)", lineHeight: 1 }}>
-                    +0
-                  </div>
-                  <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
-                    ไม่ได้รับคะแนน — สแกน QR เจ้าหน้าที่ไม่ทัน
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 48, fontWeight: 900, color: "rgba(255,255,255,0.45)", lineHeight: 1 }}>
-                    🔒 +?
-                  </div>
-                  <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, textAlign: "center", maxWidth: 280, lineHeight: 1.5 }}>
-                    สแกน QR เจ้าหน้าที่เพื่อรับคะแนน
-                  </div>
-                </>
-              )}
-            </>
-          );
-        })()}
-        {/* Rank tree — only after approval */}
-        {!result.preview && approverStatus === "confirmed" && (
+              ))}
+            </div>
+          </>
+        )}
+        {/* Rank tree */}
+        {!result.preview && (
           <div style={{ textAlign: 'center', paddingTop: 8 }}>
             {result.newRank !== result.prevRank && (
               <div style={{
@@ -364,65 +300,6 @@ export default function ScanPage() {
                 to   { transform: scale(1);   opacity: 1; }
               }
             `}</style>
-          </div>
-        )}
-        {!result.preview && approverPrompt && approverStatus !== "confirmed" && approverStatus !== "expired" && (
-          <div style={{
-            background: "rgba(255,255,255,0.15)",
-            border: "1px solid rgba(255,255,255,0.3)",
-            borderRadius: 16,
-            padding: 16,
-            marginTop: 16,
-            width: "100%",
-            maxWidth: 360,
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>หาเจ้าหน้าที่</div>
-            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 12 }}>
-              สแกน QR ของเจ้าหน้าที่ภายใน {approverCountdown} วินาที
-            </div>
-            <button
-              onClick={handleScanApprover}
-              disabled={approverStatus === "scanning"}
-              style={{
-                background: "white",
-                color: t.forest,
-                border: "none",
-                padding: "10px 20px",
-                borderRadius: 12,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              {approverStatus === "scanning" ? "กำลังเปิดสแกนเนอร์..." : "📷 สแกน QR เจ้าหน้าที่"}
-            </button>
-          </div>
-        )}
-        {!result.preview && approverStatus === "confirmed" && (
-          <div style={{
-            background: "rgba(255,255,255,0.2)",
-            borderRadius: 12,
-            padding: 10,
-            marginTop: 12,
-            fontSize: 13,
-            fontWeight: 700,
-            textAlign: "center",
-          }}>
-            ✓ ยืนยันโดยเจ้าหน้าที่
-          </div>
-        )}
-        {approverStatus === "expired" && (
-          <div style={{
-            background: "rgba(255,200,0,0.18)",
-            borderRadius: 12,
-            padding: 10,
-            marginTop: 12,
-            fontSize: 12,
-            textAlign: "center",
-          }}>
-            หมดเวลา · ไม่ได้รับคะแนน
           </div>
         )}
         <div style={{ flex: 1 }} />

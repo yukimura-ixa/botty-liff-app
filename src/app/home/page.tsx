@@ -94,8 +94,7 @@ export default function HomePage() {
   useEffect(() => {
     setRole(sessionStorage.getItem("role"));
   }, []);
-  const isStaff = role === "council" || role === "teacher" || role === "admin";
-  const isTeacherOrAdmin = role === "teacher" || role === "admin";
+  const isAdmin = role === "admin";
 
   if (error) {
     return (
@@ -386,14 +385,11 @@ export default function HomePage() {
             },
             { href: "/history", emoji: "📋", label: "ประวัติสแกน", bg: t.leaf },
             { href: "/profile", emoji: "🌱", label: "โปรไฟล์", bg: "#2A5E3F" },
-            ...(isStaff
-              ? [{ href: "/approver", emoji: "🔳", label: "สร้าง QR", bg: t.gold }]
-              : []),
-            ...(isTeacherOrAdmin
-              ? [{ href: "/teacher", emoji: "📊", label: "แดชบอร์ดครู", bg: t.ink }]
-              : []),
-            ...(role === "admin"
-              ? [{ href: "/admin", emoji: "⚙️", label: "จัดการระบบ", bg: t.ink }]
+            ...(isAdmin
+              ? [
+                  { href: "/teacher", emoji: "📊", label: "แดชบอร์ด", bg: t.ink },
+                  { href: "/admin", emoji: "⚙️", label: "จัดการระบบ", bg: t.ink },
+                ]
               : []),
           ].map(({ href, emoji, label, bg }) => (
             <Link

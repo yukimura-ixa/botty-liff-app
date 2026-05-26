@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState, type ReactElement } from 'react';
+import { type ReactElement } from 'react';
 import { theme as t } from '@/lib/theme';
 
 type Item = { href: string; label: string; icon: (p: { color: string; size: number }) => ReactElement; primary?: boolean };
@@ -14,25 +14,9 @@ const studentItems: Item[] = [
   { href: '/profile',     label: 'โปรไฟล์',  icon: UserIcon },
 ];
 
-const staffItems: Item[] = [
-  { href: '/home',        label: 'หน้าหลัก', icon: HomeIcon },
-  { href: '/leaderboard', label: 'อันดับ',   icon: TrophyIcon },
-  { href: '/approver',    label: '',          icon: QrIcon,    primary: true },
-  { href: '/history',     label: 'ประวัติ',   icon: BottleIcon },
-  { href: '/profile',     label: 'โปรไฟล์',  icon: UserIcon },
-];
-
-function isStaffRole(r: string | null): boolean {
-  return r === 'council' || r === 'teacher' || r === 'admin';
-}
-
 export default function BottomNav() {
   const path = usePathname();
-  const [items, setItems] = useState<Item[]>(studentItems);
-  useEffect(() => {
-    const r = typeof window !== 'undefined' ? sessionStorage.getItem('role') : null;
-    setItems(isStaffRole(r) ? staffItems : studentItems);
-  }, []);
+  const items = studentItems;
   return (
     <nav style={{
       position: 'fixed', left: 0, right: 0, bottom: 0,
@@ -94,16 +78,6 @@ function ScanIcon({ color, size }: { color: string; size: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path d="M3 8V5a2 2 0 012-2h3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M21 16v3a2 2 0 01-2 2h-3" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
       <path d="M3 12h18" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
-    </svg>
-  );
-}
-function QrIcon({ color, size }: { color: string; size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth="1.6"/>
-      <rect x="14" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth="1.6"/>
-      <rect x="3" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth="1.6"/>
-      <path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 18h2v2h-2z" fill={color}/>
     </svg>
   );
 }

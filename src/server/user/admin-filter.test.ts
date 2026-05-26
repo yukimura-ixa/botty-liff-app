@@ -12,7 +12,7 @@ describe("filterAndSortProfiles", () => {
   });
   it("filters by role", () => {
     const out = filterAndSortProfiles([
-      mk("a", "Alice", "student"), mk("b", "Bob", "teacher"), mk("c", "Carol", "student"),
+      mk("a", "Alice", "student"), mk("b", "Bob", "admin"), mk("c", "Carol", "student"),
     ], "student", "");
     expect(out).toHaveLength(2);
     expect(out.every((p) => p.role === "student")).toBe(true);
@@ -30,7 +30,7 @@ describe("filterAndSortProfiles", () => {
   it("combines role + q", () => {
     const out = filterAndSortProfiles([
       mk("a", "Alice Wonder", "student"),
-      mk("b", "Alice Teacher", "teacher"),
+      mk("b", "Alice Teacher", "admin"),
     ], "student", "alice");
     expect(out).toHaveLength(1);
     expect(out[0].uid).toBe("a");

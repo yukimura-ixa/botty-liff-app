@@ -103,8 +103,6 @@ export interface ScanResult {
   streakDays: number
   newRank: string
   prevRank: string
-  pendingId?: string
-  expiresInSec?: number
   annotatedImage?: string
   preview?: boolean
   awarded?: boolean
@@ -122,12 +120,7 @@ export function uploadScan(image: File, clientConfidence?: number) {
   })
 }
 
-export function confirmScan(pendingId: string, approverToken: string) {
-  return request<{ ok: boolean; approverUid: string; sessionId: string }>('/scan/confirm', {
-    method: 'POST',
-    body: JSON.stringify({ pendingId, approverToken }),
-  })
-}
+
 
 export interface ScanHistoryEntry {
   scanId: string
@@ -240,8 +233,8 @@ export function updateForestStages(thresholds: [number, number, number]) {
 }
 
 // ── Admin ─────────────────────────────────────────────────────
-export type UserRole = 'student' | 'council' | 'teacher' | 'admin';
-export type AssignableRole = 'student' | 'council' | 'teacher';
+export type UserRole = 'student' | 'admin';
+export type AssignableRole = 'student';
 
 export type UserRow = {
   uid: string;
@@ -307,24 +300,13 @@ export function adminDeleteUser(uid: string) {
   );
 }
 
-export function teacherChangeStudentRole(uid: string, role: 'student' | 'council') {
+export function teacherChangeStudentRole(uid: string, role: 'student') {
   return request<{ ok: boolean; roleChangeId?: string; noop?: boolean; warning?: string }>(
     `/teacher/students/${encodeURIComponent(uid)}/role`,
     { method: 'POST', body: JSON.stringify({ role }) },
   );
 }
 
-
-export function teacherListRoleRequests() {
-  return request<{ requests: RoleRequest[] }>('/teacher/role-requests')
-}
-
-export function teacherDecideRoleRequest(id: string, approve: boolean, reason?: string) {
-  return request<{ ok: boolean }>(`/teacher/role-requests/${encodeURIComponent(id)}/decide`, {
-    method: 'POST',
-    body: JSON.stringify({ approve, reason }),
-  })
-}
 
 export function adminListRoleChanges(targetUid?: string): Promise<{ changes: RoleChange[] }> {
   const p = new URLSearchParams();
@@ -345,65 +327,6 @@ export function adminListUserEdits(targetUid?: string): Promise<{ edits: UserEdi
   const p = new URLSearchParams();
   if (targetUid) p.set('targetUid', targetUid);
   return request(`/admin/user-edits?${p}`);
-}
-
-// ── Approver Sessions ─────────────────────────────────────────
-export type ApproverSlotToken = {
-  slot: number
-  token: string
-  validFrom: number
-  validUntil: number
-}
-
-export type ApproverSessionResponse = {
-  sessionId: string
-  startedAt: string
-  expiresAt: string
-  tokens: ApproverSlotToken[]
-}
-
-export function openApproverSession() {
-  return request<ApproverSessionResponse>('/approver/sessions', { method: 'POST' })
-}
-
-export function endApproverSession(id: string) {
-  return request<{ ok: boolean }>(`/approver/sessions/${encodeURIComponent(id)}/end`, { method: 'POST' })
-}
-
-// ── Role Requests ─────────────────────────────────────────────
-export type RoleRequestStatus = 'pending' | 'approved' | 'denied'
-export type RoleRequest = {
-  id: string
-  uid: string
-  requestedRole: 'council' | 'teacher'
-  reason: string
-  status: RoleRequestStatus
-  createdAt: string
-  decidedBy?: string
-  decidedAt?: string
-  decidedReason?: string
-}
-
-export function getMyRoleRequest() {
-  return request<{ request: RoleRequest | null }>('/me/role-requests')
-}
-
-export function createRoleRequest(requestedRole: 'council' | 'teacher', reason: string) {
-  return request<{ id: string }>('/me/role-requests', {
-    method: 'POST',
-    body: JSON.stringify({ requestedRole, reason }),
-  })
-}
-
-export function adminListRoleRequests() {
-  return request<{ requests: RoleRequest[] }>('/admin/role-requests')
-}
-
-export function adminDecideRoleRequest(id: string, approve: boolean, reason?: string) {
-  return request<{ ok: boolean }>(`/admin/role-requests/${encodeURIComponent(id)}/decide`, {
-    method: 'POST',
-    body: JSON.stringify({ approve, reason }),
-  })
 }
 
 // ── Adjustments + dual-approval ───────────────────────────────
