@@ -3,7 +3,7 @@ import { getUser } from "@/server/user/repo";
 
 export type AuthContext = {
   uid: string;
-  role: "student" | "council" | "teacher" | "admin" | "unknown";
+  role: "student" | "admin" | "unknown";
 };
 
 export class AuthError extends Error {
