@@ -103,8 +103,6 @@ export interface ScanResult {
   streakDays: number
   newRank: string
   prevRank: string
-  pendingId?: string
-  expiresInSec?: number
   annotatedImage?: string
   preview?: boolean
   awarded?: boolean
@@ -122,12 +120,7 @@ export function uploadScan(image: File, clientConfidence?: number) {
   })
 }
 
-export function confirmScan(pendingId: string, approverToken: string) {
-  return request<{ ok: boolean; approverUid: string; sessionId: string }>('/scan/confirm', {
-    method: 'POST',
-    body: JSON.stringify({ pendingId, approverToken }),
-  })
-}
+
 
 export interface ScanHistoryEntry {
   scanId: string
