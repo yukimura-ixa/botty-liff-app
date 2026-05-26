@@ -66,17 +66,6 @@ describe("updateUserProfile", () => {
     ).rejects.toThrow("self");
   });
 
-  it("rejects when target is teacher", async () => {
-    globalThis.__fsMockRepo = makeFsMock({
-      targetExists: true,
-      targetData: { role: "teacher", fullName: "T" },
-    });
-    const mod = await importMod();
-    await expect(
-      mod.updateUserProfile("u1", "u2", { fullName: "B" }),
-    ).rejects.toThrow("forbidden_target");
-  });
-
   it("rejects when target is admin", async () => {
     globalThis.__fsMockRepo = makeFsMock({
       targetExists: true,
