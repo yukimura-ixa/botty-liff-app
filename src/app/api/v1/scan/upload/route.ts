@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
   const prof = await getUser(ctx.uid);
   if (!prof) return jsonError(404, "profile");
-  const SCAN_ELIGIBLE_ROLES = new Set(["student", "council", "teacher", "admin"]);
+  const SCAN_ELIGIBLE_ROLES = new Set(["student", "admin"]);
   if (!SCAN_ELIGIBLE_ROLES.has(prof.role) || prof.status !== "active") {
     console.warn("[scan/upload] 403 not eligible", { uid: ctx.uid, role: prof.role, status: prof.status });
     return jsonError(403, "not eligible");
