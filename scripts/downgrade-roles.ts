@@ -33,6 +33,7 @@ function init() {
 
 async function main() {
   init();
+  console.log(`project=${process.env.GCP_PROJECT} apply=${APPLY}`);
   const db = getFirestore();
   const auth = getAuth();
   const snap = await db
@@ -42,6 +43,7 @@ async function main() {
 
   console.log(`Found ${snap.size} council/teacher user(s). apply=${APPLY}`);
   let changed = 0;
+  let failed = 0;
   for (const doc of snap.docs) {
     const from = doc.get("role");
     console.log(`- ${doc.id}: ${from} -> student`);
@@ -49,14 +51,15 @@ async function main() {
     await doc.ref.update({ role: "student", updatedAt: new Date() });
     try {
       await auth.setCustomUserClaims(doc.id, { role: "student" });
+      changed++;
     } catch (e) {
+      failed++;
       console.error(`  claim update failed for ${doc.id}`, e);
     }
-    changed++;
   }
   console.log(
     APPLY
-      ? `Done. Updated ${changed} user(s).`
+      ? `Done. Updated ${changed} user(s), ${failed} claim failure(s).`
       : "Dry-run only. Re-run with --apply to write."
   );
 }
