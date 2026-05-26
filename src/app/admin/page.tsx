@@ -269,19 +269,6 @@ export default function AdminPage() {
     }
   }
 
-  async function refreshUsers() {
-    const myReq = ++usersReqSeq.current;
-    try {
-      const r = await adminListUsers({ role: roleFilter, q });
-      if (myReq !== usersReqSeq.current) return;
-      setUsers(r.users ?? []);
-      setErr("");
-    } catch (e: unknown) {
-      if (myReq !== usersReqSeq.current) return;
-      setErr(e instanceof Error ? e.message : "load failed");
-    }
-  }
-
   useEffect(() => { refreshChanges(); refreshAdjustments(); refreshAdjustReqs(); refreshUserEdits(); }, []);
 
   return (
