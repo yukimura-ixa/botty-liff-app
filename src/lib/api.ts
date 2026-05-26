@@ -340,29 +340,6 @@ export function adminListUserEdits(targetUid?: string): Promise<{ edits: UserEdi
   return request(`/admin/user-edits?${p}`);
 }
 
-// ── Approver Sessions ─────────────────────────────────────────
-export type ApproverSlotToken = {
-  slot: number
-  token: string
-  validFrom: number
-  validUntil: number
-}
-
-export type ApproverSessionResponse = {
-  sessionId: string
-  startedAt: string
-  expiresAt: string
-  tokens: ApproverSlotToken[]
-}
-
-export function openApproverSession() {
-  return request<ApproverSessionResponse>('/approver/sessions', { method: 'POST' })
-}
-
-export function endApproverSession(id: string) {
-  return request<{ ok: boolean }>(`/approver/sessions/${encodeURIComponent(id)}/end`, { method: 'POST' })
-}
-
 // ── Role Requests ─────────────────────────────────────────────
 export type RoleRequestStatus = 'pending' | 'approved' | 'denied'
 export type RoleRequest = {
