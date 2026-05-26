@@ -90,7 +90,7 @@ export async function listPendingRoleRequests(): Promise<RoleRequest[]> {
 
 export type DecideError = "not_found" | "not_pending" | "self";
 
-export async function decideRoleRequest(requestId: string, actorUid: string, approve: boolean, decidedReason?: string, opts?: { allowedRoles?: AssignableRole[]; allowSelf?: boolean }): Promise<{ requestedRole?: AssignableRole; uid?: string }> {
+export async function decideRoleRequest(requestId: string, actorUid: string, approve: boolean, decidedReason?: string, opts?: { allowedRoles?: AssignableRole[] }): Promise<{ requestedRole?: AssignableRole; uid?: string }> {
   const fs = fbFirestore();
   const ref = fs.collection(COLLECTION).doc(requestId);
 
@@ -99,7 +99,7 @@ export async function decideRoleRequest(requestId: string, actorUid: string, app
     if (!snap.exists) throw new Error("not_found");
     const data = snap.data() ?? {};
     if (data.status !== "pending") throw new Error("not_pending");
-    if (data.uid === actorUid && !opts?.allowSelf) throw new Error("self");
+    if (data.uid === actorUid) throw new Error("self");
     const requestedRole = data.requestedRole as AssignableRole;
     if (opts?.allowedRoles && !opts.allowedRoles.includes(requestedRole)) {
       throw new Error("role_not_allowed");
@@ -113,7 +113,7 @@ export async function decideRoleRequest(requestId: string, actorUid: string, app
     return { uid: String(data.uid), requestedRole };
   });
 
-  if (approve && decision.uid !== actorUid) {
+  if (approve) {
     await changeRole(decision.uid, actorUid, decision.requestedRole, decidedReason || `approved request ${requestId}`);
   }
   return decision;
