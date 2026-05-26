@@ -28,16 +28,15 @@ export default function BottomNav() {
       zIndex: 50,
     }}>
       {items.map(({ href, label, icon: Icon, primary }) => {
-        const active = path === href;
+        const active = path.startsWith(href);
         if (primary) {
           return (
             <Link key={href} href={href} style={{
+              width: 60, height: 60, borderRadius: 30, marginTop: -28,
+              background: t.moss, color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 52, height: 52, borderRadius: '50%',
-              background: t.moss,
-              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-              marginBottom: 8,
-              textDecoration: 'none',
+              boxShadow: `0 12px 24px ${t.moss}55, 0 4px 8px rgba(0,0,0,0.08)`,
+              border: '4px solid white',
             }}>
               <Icon color="white" size={26} />
             </Link>
