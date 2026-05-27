@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
 import { uploadScan, ApiError, type ScanResult } from "@/lib/api";
 import { RankTree } from '@/components/botty/RankTree'
+import { ulid } from "ulidx";
 
-type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate" | "cooldown" | "dailylimit";
+type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate" | "cooldown" | "dailylimit" | "slow";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -16,6 +17,10 @@ export default function ScanPage() {
   const [error, setError] = useState("");
   const [retryAfter, setRetryAfter] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(0);
+  // Retained so a slow/failed upload can be resubmitted with the SAME idempotency
+  // key (scanId) — the server replays the result instead of awarding twice.
+  const lastBlobRef = useRef<Blob | null>(null);
+  const lastScanIdRef = useRef<string>("");
   useEffect(() => {
     if (state !== "cooldown" || retryAfter <= 0) return;
     const id = setInterval(() => {
@@ -55,53 +60,74 @@ export default function ScanPage() {
     }
   }, []);
 
-  const capture = useCallback(async () => {
+  const submit = useCallback(async (blob: Blob, scanId: string) => {
+    setState("uploading");
+    try {
+      const file = new File([blob], "scan.jpg", { type: "image/jpeg" });
+      const res = await uploadScan(file, scanId);
+      setResult(res);
+      setState("result");
+    } catch (e: unknown) {
+      if (e instanceof ApiError) {
+        // Timeout / network drop on a slow connection: keep the photo so the user
+        // can resend without re-capturing (resend reuses the same scanId).
+        if (e.code === "timeout" || e.code === "network") {
+          setState("slow");
+          return;
+        }
+        if (e.status === 429 && e.code === "cooldown") {
+          setRetryAfter(Number(e.data?.retryAfter) || 60);
+          setState("cooldown");
+          return;
+        }
+        if (e.status === 429 && e.code === "daily_limit") {
+          setDailyLimit(Number(e.data?.limit) || 20);
+          setState("dailylimit");
+          return;
+        }
+        if (e.status === 422 || /PET/i.test(e.message)) {
+          setState("notbottle");
+          return;
+        }
+        if (e.status === 409 || /duplicate/i.test(e.message)) {
+          setState("duplicate");
+          return;
+        }
+        setError(e.message);
+      } else {
+        setError(e instanceof Error ? e.message : "การสแกนล้มเหลว");
+      }
+      setState("error");
+    }
+  }, []);
+
+  const capture = useCallback(() => {
     if (!videoRef.current || !stream) return;
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
     canvas.getContext("2d")!.drawImage(videoRef.current, 0, 0);
     canvas.toBlob(
-      async (blob) => {
+      (blob) => {
         if (!blob) return;
-        setState("uploading");
         stream.getTracks().forEach((tr) => tr.stop());
-        try {
-          const file = new File([blob], "scan.jpg", { type: "image/jpeg" });
-          const res = await uploadScan(file);
-          setResult(res);
-          setState("result");
-        } catch (e: unknown) {
-          if (e instanceof ApiError) {
-            if (e.status === 429 && e.code === "cooldown") {
-              setRetryAfter(Number(e.data?.retryAfter) || 60);
-              setState("cooldown");
-              return;
-            }
-            if (e.status === 429 && e.code === "daily_limit") {
-              setDailyLimit(Number(e.data?.limit) || 20);
-              setState("dailylimit");
-              return;
-            }
-            if (e.status === 422 || /PET/i.test(e.message)) {
-              setState("notbottle");
-              return;
-            }
-            if (e.status === 409 || /duplicate/i.test(e.message)) {
-              setState("duplicate");
-              return;
-            }
-            setError(e.message);
-          } else {
-            setError(e instanceof Error ? e.message : "การสแกนล้มเหลว");
-          }
-          setState("error");
-        }
+        const scanId = ulid();
+        lastBlobRef.current = blob;
+        lastScanIdRef.current = scanId;
+        void submit(blob, scanId);
       },
       "image/jpeg",
       0.9,
     );
-  }, [stream]);
+  }, [stream, submit]);
+
+  const resend = useCallback(() => {
+    if (lastBlobRef.current && lastScanIdRef.current) {
+      void submit(lastBlobRef.current, lastScanIdRef.current);
+    } else {
+      setState("idle");
+    }
+  }, [submit]);
 
   if (state === "idle")
     return (
@@ -366,6 +392,23 @@ export default function ScanPage() {
           สแกนได้สูงสุด {dailyLimit} ครั้งต่อวัน<br/>กลับมาใหม่พรุ่งนี้
         </div>
         <button onClick={() => router.replace("/home")} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          กลับหน้าหลัก
+        </button>
+      </main>
+    );
+
+  if (state === "slow")
+    return (
+      <main style={{ minHeight: "100dvh", background: "#0A0F0C", color: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        <div style={{ fontSize: 56 }}>🐢</div>
+        <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>การเชื่อมต่อช้า</div>
+        <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+          ส่งรูปไม่สำเร็จเพราะเน็ตช้า<br/>กดส่งอีกครั้งได้เลย ไม่เสียคะแนนซ้ำ
+        </div>
+        <button onClick={resend} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          ส่งอีกครั้ง
+        </button>
+        <button onClick={() => router.replace("/home")} style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
           กลับหน้าหลัก
         </button>
       </main>

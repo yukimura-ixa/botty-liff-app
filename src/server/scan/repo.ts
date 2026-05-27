@@ -77,6 +77,33 @@ export async function isDuplicateScan(
   return { dup: false };
 }
 
+export type StoredScan = {
+  uid: string;
+  detectedClass: string;
+  confidence: number;
+  itemCount: number;
+  basePoints: number;
+  streakBonus: number;
+  totalPoints: number;
+};
+
+/** Read a previously-awarded scan by id for idempotent replay. Null if not found. */
+export async function getStoredScan(scanId: string): Promise<StoredScan | null> {
+  const fs = fbFirestore();
+  const snap = await fs.collection("scans").doc(scanId).get();
+  if (!snap.exists) return null;
+  const d = snap.data()!;
+  return {
+    uid: strOf(d.uid),
+    detectedClass: strOf(d.detectedClass),
+    confidence: typeof d.confidence === "number" ? d.confidence : 0,
+    itemCount: intOf(d.itemCount),
+    basePoints: intOf(d.basePoints),
+    streakBonus: intOf(d.streakBonus),
+    totalPoints: intOf(d.totalPoints),
+  };
+}
+
 function isoOf(v: unknown): string {
   if (!v) return "";
   if (v instanceof Date) return v.toISOString();

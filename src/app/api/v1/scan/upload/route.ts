@@ -11,7 +11,8 @@ import { imageHash, perceptualHash, phashBucket } from "@/server/scan/hash";
 import { detect, detectorConfigFromEnv } from "@/server/scan/detect";
 import { uploadScanImage } from "@/server/scan/storage";
 import { awardScan } from "@/server/scan/award";
-import { isDuplicateScan } from "@/server/scan/repo";
+import { isDuplicateScan, getStoredScan, type StoredScan } from "@/server/scan/repo";
+import { isValidScanId } from "@/server/scan/scan-id";
 import { recordPreviewScan } from "@/server/scan/preview";
 import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
 import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-limit";
@@ -34,6 +35,31 @@ function sniffImageMime(buf: Buffer): "image/jpeg" | "image/png" | null {
   return null;
 }
 
+// Replay of an already-awarded scan (slow-network retry / concurrent double-submit).
+// Points are NOT re-awarded; "new" totals/rank reflect the user's current profile,
+// and rank-up is suppressed (prev === new). annotatedImage is not persisted, so omit.
+function replayResult(scanId: string, s: StoredScan, prof: { totalPoints?: number; streakDays?: number; rank?: string }) {
+  const pointedItems = Math.min(
+    DEFAULT_POINTS_CONFIG.maxItemsPerScan,
+    Math.max(1, Number.isFinite(s.itemCount) ? Math.floor(s.itemCount) : 1),
+  );
+  const rank = prof.rank ?? "ต้นกล้า";
+  return {
+    scanId,
+    detectedClass: s.detectedClass,
+    confidence: s.confidence,
+    itemCount: s.itemCount,
+    pointedItems,
+    basePoints: s.basePoints,
+    streakBonus: s.streakBonus,
+    totalPoints: s.totalPoints,
+    newTotalPoints: prof.totalPoints ?? 0,
+    streakDays: prof.streakDays ?? 0,
+    prevRank: rank,
+    newRank: rank,
+    awarded: true,
+  };
+}
 
 export async function POST(req: NextRequest) {
   const ipCheck = ipScanLimiter.take(clientIp(req));
@@ -60,6 +86,10 @@ export async function POST(req: NextRequest) {
   if (buf.length === 0) return jsonError(400, "empty image");
   if (!sniffImageMime(buf)) return jsonError(400, "unsupported image format (need JPEG or PNG)");
   const clientConf = Number(form.get("clientConfidence") ?? 0) || 0;
+  // Client-generated idempotency key (one per captured photo). Falls back to a
+  // server ulid for older clients that don't send one.
+  const formScanId = form.get("scanId");
+  const scanId = isValidScanId(formScanId) ? formScanId : ulid();
   const localDate = bangkokDate(new Date());
 
   const prof = await getUser(ctx.uid);
@@ -82,7 +112,6 @@ export async function POST(req: NextRequest) {
         status: 422, headers: { "Content-Type": "application/json" },
       });
     }
-    const scanId = ulid();
     let imageUrl: string;
     try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
     catch (err) {
@@ -137,6 +166,15 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Idempotent replay: same captured photo resubmitted (slow-network retry).
+  // Checked before cooldown so a retry of a scan that already succeeded returns
+  // its result instead of a confusing 429, and skips the detector + upload cost.
+  const prior = await getStoredScan(scanId);
+  if (prior) {
+    if (prior.uid !== ctx.uid) return jsonError(409, "duplicate scan");
+    return jsonOk(replayResult(scanId, prior, prof));
+  }
+
   if (prof.lastScanAt) {
     const last = prof.lastScanAt instanceof Date ? prof.lastScanAt : new Date(prof.lastScanAt as unknown as string);
     const wait = COOLDOWN_MS - (Date.now() - last.getTime());
@@ -181,7 +219,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const scanId = ulid();
   let imageUrl: string;
   try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
   catch (err) {
@@ -221,7 +258,13 @@ export async function POST(req: NextRequest) {
     newRank,
   };
 
-  await awardScan(awardArgs);
+  const { awarded } = await awardScan(awardArgs);
+  if (!awarded) {
+    // A concurrent submit of the same scanId won the race; replay its result.
+    const prior = await getStoredScan(scanId);
+    if (prior && prior.uid === ctx.uid) return jsonOk(replayResult(scanId, prior, prof));
+    return jsonError(409, "duplicate scan");
+  }
   bustLeaderboardCaches();
 
   return jsonOk({

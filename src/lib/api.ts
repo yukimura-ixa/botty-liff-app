@@ -31,7 +31,7 @@ async function getFreshToken(): Promise<string> {
   return auth.currentUser.getIdToken()
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, opts?: { timeoutMs?: number }): Promise<T> {
   const idToken = await getFreshToken()
   const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
   const headers = new Headers(init?.headers)
@@ -42,10 +42,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set('Authorization', `Bearer ${idToken}`)
   }
 
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers,
-  })
+  // Abort slow requests so the UI never hangs forever on a flaky connection.
+  const controller = new AbortController()
+  const timer = opts?.timeoutMs
+    ? setTimeout(() => controller.abort(), opts.timeoutMs)
+    : undefined
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    if (controller.signal.aborted) {
+      throw new ApiError(0, 'request timed out', 'timeout')
+    }
+    throw new ApiError(0, e instanceof Error ? e.message : 'network error', 'network')
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
   if (!res.ok) {
     const body = await res.text()
     let msg = body || res.statusText
@@ -108,16 +124,19 @@ export interface ScanResult {
   awarded?: boolean
 }
 
-export function uploadScan(image: File, clientConfidence?: number) {
+// scanId is a client-generated idempotency key (one per captured photo): a retry
+// of the same photo reuses it so the server replays the result instead of re-awarding.
+export function uploadScan(image: File, scanId: string, clientConfidence?: number) {
   const fd = new FormData()
   fd.append('image', image)
+  fd.append('scanId', scanId)
   if (typeof clientConfidence === 'number') {
     fd.append('clientConfidence', String(clientConfidence))
   }
   return request<ScanResult>('/scan/upload', {
     method: 'POST',
     body: fd,
-  })
+  }, { timeoutMs: 45_000 })
 }
 
 
