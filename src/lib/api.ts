@@ -412,3 +412,58 @@ export function teacherAdjustPoints(uid: string, delta: number, reason: string) 
 export const TEACHER_IMMEDIATE_CAP = 10
 export const TEACHER_REQUEST_CAP = 50
 
+// ── Scan logs (admin) ─────────────────────────────────────────
+export type AdminScanLogOutcome =
+  | "awarded" | "preview" | "replay"
+  | "denied_cooldown" | "denied_daily_cap"
+  | "denied_dup_hash" | "denied_dup_phash"
+  | "rejected_not_pet";
+
+export interface AdminScanLogRow {
+  id: string;
+  scanId: string;
+  uid: string;
+  classKey: string;
+  outcome: AdminScanLogOutcome;
+  at: string;
+  localDate: string;
+  basePoints?: number;
+  streakBonus?: number;
+  totalPoints?: number;
+  itemCount?: number;
+  detectedClass?: string;
+  confidence?: number;
+  clientConf?: number;
+  dupReason?: "hash" | "phash";
+}
+
+export interface AdminScanLogResponse {
+  rows: AdminScanLogRow[];
+  nextCursor: string | null;
+  aggregates: Record<AdminScanLogOutcome, number>;
+}
+
+export interface AdminScanLogQuery {
+  from?: string;
+  to?: string;
+  outcome?: AdminScanLogOutcome[];
+  uid?: string;
+  classKey?: string;
+  scanId?: string;
+  cursor?: string | null;
+  limit?: number;
+}
+
+export async function adminListScanLogs(q: AdminScanLogQuery): Promise<AdminScanLogResponse> {
+  const sp = new URLSearchParams();
+  if (q.from) sp.set("from", q.from);
+  if (q.to) sp.set("to", q.to);
+  if (q.outcome && q.outcome.length) sp.set("outcome", q.outcome.join(","));
+  if (q.uid) sp.set("uid", q.uid);
+  if (q.classKey) sp.set("classKey", q.classKey);
+  if (q.scanId) sp.set("scanId", q.scanId);
+  if (q.cursor) sp.set("cursor", q.cursor);
+  if (q.limit) sp.set("limit", String(q.limit));
+  return request<AdminScanLogResponse>(`/admin/scan-logs?${sp.toString()}`);
+}
+
