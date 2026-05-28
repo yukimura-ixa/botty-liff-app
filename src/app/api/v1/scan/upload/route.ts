@@ -16,6 +16,7 @@ import { isValidScanId } from "@/server/scan/scan-id";
 import { recordPreviewScan } from "@/server/scan/preview";
 import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
 import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-limit";
+import { logScanAttempt, logScanEvent } from "@/server/scan/log";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -63,28 +64,56 @@ function replayResult(scanId: string, s: StoredScan, prof: { totalPoints?: numbe
 
 export async function POST(req: NextRequest) {
   const ipCheck = ipScanLimiter.take(clientIp(req));
-  if (!ipCheck.ok) return rateLimitResponse(ipCheck.retryAfterSec);
+  if (!ipCheck.ok) {
+    logScanEvent("ip_rate", { reason: `retryAfter=${ipCheck.retryAfterSec}` });
+    return rateLimitResponse(ipCheck.retryAfterSec);
+  }
 
   let ctx;
   try { ctx = await verifyBearerToken(req); }
   catch (e) {
-    if (e instanceof AuthError) return jsonError(e.status, e.message);
+    if (e instanceof AuthError) {
+      logScanEvent("auth", { reason: `${e.status} ${e.message}` });
+      return jsonError(e.status, e.message);
+    }
+    logScanEvent("auth", { err: e });
     return jsonError(500, "auth");
   }
 
   let form: FormData;
   try { form = await req.formData(); }
-  catch { return jsonError(400, "invalid multipart"); }
+  catch {
+    logScanEvent("bad_request", { uid: ctx.uid, reason: "invalid multipart" });
+    return jsonError(400, "invalid multipart");
+  }
 
   const file = form.get("image");
-  if (!(file instanceof Blob)) return jsonError(400, "missing image");
-  if (file.size === 0) return jsonError(400, "empty image");
-  if (file.size < MIN_IMAGE_BYTES) return jsonError(400, "image too small");
-  if (file.size > MAX_IMAGE_BYTES) return jsonError(413, "image too large");
+  if (!(file instanceof Blob)) {
+    logScanEvent("bad_image", { uid: ctx.uid, reason: "missing image" });
+    return jsonError(400, "missing image");
+  }
+  if (file.size === 0) {
+    logScanEvent("bad_image", { uid: ctx.uid, reason: "empty image" });
+    return jsonError(400, "empty image");
+  }
+  if (file.size < MIN_IMAGE_BYTES) {
+    logScanEvent("bad_image", { uid: ctx.uid, reason: "image too small" });
+    return jsonError(400, "image too small");
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    logScanEvent("bad_image", { uid: ctx.uid, reason: "image too large" });
+    return jsonError(413, "image too large");
+  }
 
   const buf = Buffer.from(await file.arrayBuffer());
-  if (buf.length === 0) return jsonError(400, "empty image");
-  if (!sniffImageMime(buf)) return jsonError(400, "unsupported image format (need JPEG or PNG)");
+  if (buf.length === 0) {
+    logScanEvent("bad_image", { uid: ctx.uid, reason: "empty buffer" });
+    return jsonError(400, "empty image");
+  }
+  if (!sniffImageMime(buf)) {
+    logScanEvent("bad_image", { uid: ctx.uid, reason: "unsupported image format" });
+    return jsonError(400, "unsupported image format (need JPEG or PNG)");
+  }
   const clientConf = Number(form.get("clientConfidence") ?? 0) || 0;
   // Client-generated idempotency key (one per captured photo). Falls back to a
   // server ulid for older clients that don't send one.
@@ -93,10 +122,17 @@ export async function POST(req: NextRequest) {
   const localDate = bangkokDate(new Date());
 
   const prof = await getUser(ctx.uid);
-  if (!prof) return jsonError(404, "profile");
+  if (!prof) {
+    logScanEvent("no_profile", { uid: ctx.uid, scanId });
+    return jsonError(404, "profile");
+  }
   const SCAN_ELIGIBLE_ROLES = new Set(["student", "admin"]);
   if (!SCAN_ELIGIBLE_ROLES.has(prof.role) || prof.status !== "active") {
-    console.warn("[scan/upload] 403 not eligible", { uid: ctx.uid, role: prof.role, status: prof.status });
+    logScanEvent("not_eligible", {
+      uid: ctx.uid,
+      scanId,
+      reason: `role=${prof.role} status=${prof.status}`,
+    });
     return jsonError(403, "not eligible");
   }
 
@@ -104,10 +140,17 @@ export async function POST(req: NextRequest) {
     let det;
     try { det = await detect(detectorConfigFromEnv(), buf); }
     catch (err) {
-      console.error("detector error", ctx.uid, err);
+      logScanEvent("error_detector", { uid: ctx.uid, scanId, err });
       return jsonError(500, "detector error");
     }
     if (!det.accepted) {
+      await logScanAttempt({
+        scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+        outcome: "rejected_not_pet",
+        at: new Date(), localDate,
+        confidence: det.confidence, clientConf,
+        itemCount: det.itemCount, detectedClass: det.class,
+      });
       return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
         status: 422, headers: { "Content-Type": "application/json" },
       });
@@ -115,7 +158,7 @@ export async function POST(req: NextRequest) {
     let imageUrl: string;
     try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
     catch (err) {
-      console.error("blob upload error", ctx.uid, err);
+      logScanEvent("error_storage", { uid: ctx.uid, scanId, err });
       return jsonError(500, "storage");
     }
     const capturedAt = new Date();
@@ -143,10 +186,17 @@ export async function POST(req: NextRequest) {
         localDate,
       });
     } catch (err) {
-      console.error("preview scan write failed", ctx.uid, err);
+      logScanEvent("error_preview", { uid: ctx.uid, scanId, err });
       return jsonError(500, "preview write");
     }
 
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "preview",
+      at: capturedAt, localDate,
+      itemCount: det.itemCount, detectedClass: det.class,
+      confidence: det.confidence, clientConf,
+    });
     return jsonOk({
       scanId,
       detectedClass: det.class,
@@ -172,6 +222,13 @@ export async function POST(req: NextRequest) {
   const prior = await getStoredScan(scanId);
   if (prior) {
     if (prior.uid !== ctx.uid) return jsonError(409, "duplicate scan");
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "replay",
+      at: new Date(), localDate,
+      basePoints: prior.basePoints, streakBonus: prior.streakBonus, totalPoints: prior.totalPoints,
+      itemCount: prior.itemCount, detectedClass: prior.detectedClass, confidence: prior.confidence,
+    });
     return jsonOk(replayResult(scanId, prior, prof));
   }
 
@@ -179,12 +236,22 @@ export async function POST(req: NextRequest) {
     const last = prof.lastScanAt instanceof Date ? prof.lastScanAt : new Date(prof.lastScanAt as unknown as string);
     const wait = COOLDOWN_MS - (Date.now() - last.getTime());
     if (wait > 0) {
+      await logScanAttempt({
+        scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+        outcome: "denied_cooldown",
+        at: new Date(), localDate,
+      });
       return new Response(JSON.stringify({ error: "cooldown", retryAfter: Math.ceil(wait / 1000) }), {
         status: 429, headers: { "Content-Type": "application/json" },
       });
     }
   }
   if (prof.dailyScanDate === localDate && (prof.dailyScans ?? 0) >= DAILY_LIMIT) {
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "denied_daily_cap",
+      at: new Date(), localDate,
+    });
     return new Response(JSON.stringify({ error: "daily_limit", limit: DAILY_LIMIT }), {
       status: 429, headers: { "Content-Type": "application/json" },
     });
@@ -199,6 +266,13 @@ export async function POST(req: NextRequest) {
   }
   const dup = await isDuplicateScan(ctx.uid, hash, phash);
   if (dup.dup) {
+    const dupReason: "hash" | "phash" = dup.reason === "sha256" ? "hash" : "phash";
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: dupReason === "hash" ? "denied_dup_hash" : "denied_dup_phash",
+      at: new Date(), localDate,
+      dupReason,
+    });
     return new Response(
       JSON.stringify({ error: "duplicate scan", reason: dup.reason }),
       { status: 409, headers: { "Content-Type": "application/json" } },
@@ -210,10 +284,17 @@ export async function POST(req: NextRequest) {
   let det;
   try { det = await detect(detectorConfigFromEnv(), buf); }
   catch (err) {
-    console.error("detector error", ctx.uid, err);
+    logScanEvent("error_detector", { uid: ctx.uid, scanId, err });
     return jsonError(500, "detector error");
   }
   if (!det.accepted) {
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "rejected_not_pet",
+      at: new Date(), localDate,
+      confidence: det.confidence, clientConf,
+      itemCount: det.itemCount, detectedClass: det.class,
+    });
     return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
       status: 422, headers: { "Content-Type": "application/json" },
     });
@@ -222,7 +303,7 @@ export async function POST(req: NextRequest) {
   let imageUrl: string;
   try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
   catch (err) {
-    console.error("blob upload error", ctx.uid, err);
+    logScanEvent("error_storage", { uid: ctx.uid, scanId, err });
     return jsonError(500, "storage");
   }
   const capturedAt = new Date();
@@ -263,10 +344,19 @@ export async function POST(req: NextRequest) {
     // A concurrent submit of the same scanId won the race; replay its result.
     const prior = await getStoredScan(scanId);
     if (prior && prior.uid === ctx.uid) return jsonOk(replayResult(scanId, prior, prof));
+    logScanEvent("error_award_race", { uid: ctx.uid, scanId });
     return jsonError(409, "duplicate scan");
   }
   bustLeaderboardCaches();
 
+  await logScanAttempt({
+    scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+    outcome: "awarded",
+    at: capturedAt, localDate,
+    basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+    itemCount: det.itemCount, detectedClass: det.class,
+    confidence: det.confidence, clientConf,
+  });
   return jsonOk({
     scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
     pointedItems,
