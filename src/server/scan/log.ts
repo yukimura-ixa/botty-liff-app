@@ -48,6 +48,25 @@ export async function logScanAttempt(_input: ScanAttemptLog): Promise<void> {
   throw new Error("not implemented");
 }
 
-export function logScanEvent(_outcome: StdoutOnlyOutcome, _ctx: StdoutEventCtx = {}): void {
-  throw new Error("not implemented");
+export function logScanEvent(outcome: StdoutOnlyOutcome, ctx: StdoutEventCtx = {}): void {
+  if (process.env.VITEST) return;
+  const payload: Record<string, unknown> = {
+    tag: "scan",
+    outcome,
+    at: new Date().toISOString(),
+  };
+  if (ctx.scanId) payload.scanId = ctx.scanId;
+  if (ctx.uid) payload.uid = ctx.uid;
+  if (ctx.reason) payload.reason = ctx.reason;
+  if (ctx.err !== undefined) {
+    const e = ctx.err;
+    if (e instanceof Error) {
+      payload.errMessage = e.message;
+      payload.errStack = e.stack ?? "";
+    } else {
+      payload.errMessage = String(e);
+    }
+  }
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(payload));
 }
