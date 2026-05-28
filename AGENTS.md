@@ -110,3 +110,15 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+## Post-deploy: enable Firestore TTL for scanAttempts
+
+After the first deployment that includes scan attempt logging, enable the TTL
+policy on the `scanAttempts` collection so 30-day-old rows auto-purge:
+
+1. Open the Firebase console → Firestore → TTL.
+2. Add a policy on collection `scanAttempts`, field `expiresAt`.
+3. Status should turn "Active" within ~24h.
+
+Without this step the collection grows unbounded.
+
