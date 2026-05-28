@@ -1,3 +1,5 @@
+import { writeScanAttempt } from "./log-repo";
+
 export type ScanOutcome =
   | "awarded"
   | "preview"
@@ -44,8 +46,39 @@ export interface StdoutEventCtx {
   err?: unknown;
 }
 
-export async function logScanAttempt(_input: ScanAttemptLog): Promise<void> {
-  throw new Error("not implemented");
+export async function logScanAttempt(input: ScanAttemptLog): Promise<void> {
+  if (process.env.VITEST) return;
+  const payload: Record<string, unknown> = {
+    tag: "scan",
+    outcome: input.outcome,
+    scanId: input.scanId,
+    uid: input.uid,
+    classKey: input.classKey,
+    at: input.at.toISOString(),
+    localDate: input.localDate,
+  };
+  const optKeys: (keyof ScanAttemptLog)[] = [
+    "basePoints", "streakBonus", "totalPoints",
+    "itemCount", "detectedClass", "confidence", "clientConf",
+    "dupReason",
+  ];
+  for (const k of optKeys) {
+    const v = input[k];
+    if (v !== undefined) payload[k] = v;
+  }
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(payload));
+  try {
+    await writeScanAttempt(input);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("scanAttempts write failed", {
+      scanId: input.scanId,
+      uid: input.uid,
+      outcome: input.outcome,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 export function logScanEvent(outcome: StdoutOnlyOutcome, ctx: StdoutEventCtx = {}): void {
