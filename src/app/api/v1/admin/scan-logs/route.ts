@@ -7,6 +7,7 @@ import { listScanAttempts, countScanAttemptsByOutcome, type ScanLogQuery } from 
 import type { ScanOutcome } from "@/server/scan/log";
 
 export const runtime = "nodejs";
+export const maxDuration = 15;
 
 const ALLOWED: ScanOutcome[] = [
   "awarded", "preview", "replay",
@@ -36,10 +37,16 @@ export async function GET(req: NextRequest) {
     limit: parseLimit(sp.get("limit")),
   };
 
-  const [list, aggregates] = await Promise.all([
-    listScanAttempts(q),
-    countScanAttemptsByOutcome({ from: q.from, to: q.to, uid: q.uid, classKey: q.classKey }),
-  ]);
+  let list, aggregates;
+  try {
+    [list, aggregates] = await Promise.all([
+      listScanAttempts(q),
+      countScanAttemptsByOutcome({ from: q.from, to: q.to, uid: q.uid, classKey: q.classKey }),
+    ]);
+  } catch (err) {
+    console.error("admin/scan-logs query failed", err);
+    return jsonError(500, "query");
+  }
   return jsonOk({
     rows: list.rows.map((r) => ({ ...r, at: r.at.toISOString() })),
     nextCursor: list.nextCursor,
