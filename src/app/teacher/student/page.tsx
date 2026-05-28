@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { theme as t } from '@/lib/theme';
+import { StudentScanLogsTab } from '@/components/admin/StudentScanLogsTab';
 import {
   getStudent, exportToSheets, formatClassKey,
   teacherAdjustPoints, teacherCreateAdjustRequest,
@@ -20,6 +21,7 @@ function TeacherProfileContent() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [tab, setTab] = useState<'profile' | 'scanLogs'>('profile');
 
   function load() {
     if (!uid) return;
@@ -85,31 +87,46 @@ function TeacherProfileContent() {
         ) : <div style={{ opacity: 0.6, fontSize: 13 }}>กำลังโหลด...</div>}
       </div>
 
-      <div style={{ padding: '14px 18px 0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.forest }}>กิจกรรม 7 วันล่าสุด</div>
-          <div style={{ fontSize: 11, color: t.muted }}>{days.reduce((a,b)=>a+b,0)} ขวด รวม</div>
-        </div>
-        <div style={{ background: 'white', borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mint}`, display: 'flex', alignItems: 'flex-end', gap: 6, height: 100 }}>
-          {days.map((d,i) => (
-            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
-                <div style={{ width: '100%', borderRadius: '6px 6px 0 0', background: i===6?t.moss:`linear-gradient(180deg,${t.leaf},${t.moss})`, height:`${(d/max)*100}%`, minHeight: d>0?4:0, position:'relative' }}>
-                  {d>0&&<div style={{ position:'absolute',top:-16,left:'50%',transform:'translateX(-50%)',fontSize:10,fontWeight:700,color:t.forest }}>{d}</div>}
-                </div>
-              </div>
-              <div style={{ fontSize: 10, color: t.muted, fontWeight: 600 }}>{DAY_LABELS[i]}</div>
-            </div>
-          ))}
-        </div>
+      <div style={{ display: 'flex', gap: 8, padding: '12px 16px 0' }}>
+        <button onClick={() => setTab('profile')} disabled={tab === 'profile'}>โปรไฟล์</button>
+        <button onClick={() => setTab('scanLogs')} disabled={tab === 'scanLogs'}>Scan Logs</button>
       </div>
 
-      <div style={{ padding: '14px 18px 0', display: 'flex', gap: 8 }}>
-        <button onClick={() => setAdjustOpen(true)} disabled={!student} style={{ flex:1,height:42,borderRadius:10,border:`1px solid ${t.mint}`,background:'white',color:t.forest,fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:student?'pointer':'default',opacity:student?1:0.5 }}>ปรับคะแนน</button>
-        <button onClick={handleExport} disabled={exporting} style={{ flex:1,height:42,borderRadius:10,border:'none',background:t.forest,color:'white',fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:'pointer',opacity:exporting?0.7:1 }}>{exporting?'...':'ส่งออก Sheet ↗'}</button>
-      </div>
-      {adjustOpen && student && (
-        <AdjustModal uid={uid} student={student} onClose={() => setAdjustOpen(false)} onApplied={load} />
+      {tab === 'profile' && (
+        <>
+          <div style={{ padding: '14px 18px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.forest }}>กิจกรรม 7 วันล่าสุด</div>
+              <div style={{ fontSize: 11, color: t.muted }}>{days.reduce((a,b)=>a+b,0)} ขวด รวม</div>
+            </div>
+            <div style={{ background: 'white', borderRadius: 14, padding: '14px 12px', border: `1px solid ${t.mint}`, display: 'flex', alignItems: 'flex-end', gap: 6, height: 100 }}>
+              {days.map((d,i) => (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                    <div style={{ width: '100%', borderRadius: '6px 6px 0 0', background: i===6?t.moss:`linear-gradient(180deg,${t.leaf},${t.moss})`, height:`${(d/max)*100}%`, minHeight: d>0?4:0, position:'relative' }}>
+                      {d>0&&<div style={{ position:'absolute',top:-16,left:'50%',transform:'translateX(-50%)',fontSize:10,fontWeight:700,color:t.forest }}>{d}</div>}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: t.muted, fontWeight: 600 }}>{DAY_LABELS[i]}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ padding: '14px 18px 0', display: 'flex', gap: 8 }}>
+            <button onClick={() => setAdjustOpen(true)} disabled={!student} style={{ flex:1,height:42,borderRadius:10,border:`1px solid ${t.mint}`,background:'white',color:t.forest,fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:student?'pointer':'default',opacity:student?1:0.5 }}>ปรับคะแนน</button>
+            <button onClick={handleExport} disabled={exporting} style={{ flex:1,height:42,borderRadius:10,border:'none',background:t.forest,color:'white',fontSize:12.5,fontWeight:600,fontFamily:'inherit',cursor:'pointer',opacity:exporting?0.7:1 }}>{exporting?'...':'ส่งออก Sheet ↗'}</button>
+          </div>
+          {adjustOpen && student && (
+            <AdjustModal uid={uid} student={student} onClose={() => setAdjustOpen(false)} onApplied={load} />
+          )}
+        </>
+      )}
+
+      {tab === 'scanLogs' && uid && (
+        <div style={{ padding: 16 }}>
+          <StudentScanLogsTab uid={uid} />
+        </div>
       )}
     </main>
   );
