@@ -321,6 +321,21 @@ export default function AdminPage() {
         <div style={{ fontSize: 11.5, color: `${t.mint}aa`, maxWidth: 320, lineHeight: 1.55 }}>
           จัดการสิทธิ์ผู้ใช้และถังขยะ · ดูข้อมูลนักเรียนผ่านบัญชีครูเท่านั้น
         </div>
+        <a
+          href="/admin/scan-logs"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            marginTop: 14, padding: "10px 14px", borderRadius: 10,
+            ...surfaceDark,
+            textDecoration: "none", color: "white",
+            fontSize: 13, fontFamily: BODY, fontWeight: 600,
+          }}
+        >
+          <span>Scan Logs</span>
+          <span style={{ fontSize: 10.5, color: `${t.mint}99`, fontFamily: MONO }}>
+            Audit per-scan attempts (awarded/denied/rejected) — 30d
+          </span>
+        </a>
       </header>
 
       <nav
