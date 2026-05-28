@@ -72,24 +72,33 @@ export async function listScanAttempts(q: ScanLogQuery): Promise<{ rows: ScanLog
   };
 }
 
+const ALL_OUTCOMES: ScanOutcome[] = [
+  "awarded", "preview", "replay",
+  "denied_cooldown", "denied_daily_cap",
+  "denied_dup_hash", "denied_dup_phash",
+  "rejected_not_pet",
+];
+
 export async function countScanAttemptsByOutcome(q: ScanLogQuery): Promise<Record<ScanOutcome, number>> {
   const fs = fbFirestore();
-  let ref = fs.collection("scanAttempts").orderBy("at", "desc").limit(5000);
-  if (q.uid) ref = ref.where("uid", "==", q.uid) as typeof ref;
-  if (q.classKey) ref = ref.where("classKey", "==", q.classKey) as typeof ref;
-  if (q.from) ref = ref.where("at", ">=", q.from) as typeof ref;
-  if (q.to) ref = ref.where("at", "<=", q.to) as typeof ref;
-  const snap = await ref.get();
+  const results = await Promise.all(
+    ALL_OUTCOMES.map(async (outcome) => {
+      let ref: FirebaseFirestore.Query = fs.collection("scanAttempts").where("outcome", "==", outcome);
+      if (q.uid) ref = ref.where("uid", "==", q.uid);
+      if (q.classKey) ref = ref.where("classKey", "==", q.classKey);
+      if (q.from) ref = ref.where("at", ">=", q.from);
+      if (q.to) ref = ref.where("at", "<=", q.to);
+      const snap = await ref.count().get();
+      return [outcome, snap.data().count] as const;
+    }),
+  );
   const counts: Record<ScanOutcome, number> = {
     awarded: 0, preview: 0, replay: 0,
     denied_cooldown: 0, denied_daily_cap: 0,
     denied_dup_hash: 0, denied_dup_phash: 0,
     rejected_not_pet: 0,
   };
-  for (const d of snap.docs) {
-    const o = d.get("outcome") as ScanOutcome | undefined;
-    if (o && o in counts) counts[o] += 1;
-  }
+  for (const [outcome, n] of results) counts[outcome] = n;
   return counts;
 }
 

@@ -2,7 +2,7 @@
 import { NextRequest } from "next/server";
 import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { hasRole } from "@/server/lib/role-guard";
-import { jsonError, jsonOk } from "@/server/lib/http";
+import { jsonError, jsonNoStore } from "@/server/lib/http";
 import { listScanAttempts, countScanAttemptsByOutcome, type ScanLogQuery } from "@/server/scan/log-repo";
 import type { ScanOutcome } from "@/server/scan/log";
 
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     console.error("admin/scan-logs query failed", err);
     return jsonError(500, "query");
   }
-  return jsonOk({
+  return jsonNoStore({
     rows: list.rows.map((r) => ({ ...r, at: r.at.toISOString() })),
     nextCursor: list.nextCursor,
     aggregates,
@@ -60,8 +60,9 @@ function parseDate(v: string | null): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 function parseLimit(v: string | null): number {
+  if (!v) return 50;
   const n = Number(v);
-  if (!Number.isFinite(n)) return 50;
+  if (!Number.isFinite(n) || n <= 0) return 50;
   return Math.min(200, Math.max(1, Math.floor(n)));
 }
 function parseOutcomes(v: string | null): ScanOutcome[] | undefined {
