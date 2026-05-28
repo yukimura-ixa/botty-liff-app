@@ -144,6 +144,13 @@ export async function POST(req: NextRequest) {
       return jsonError(500, "detector error");
     }
     if (!det.accepted) {
+      await logScanAttempt({
+        scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+        outcome: "rejected_not_pet",
+        at: new Date(), localDate,
+        confidence: det.confidence, clientConf,
+        itemCount: det.itemCount, detectedClass: det.class,
+      });
       return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
         status: 422, headers: { "Content-Type": "application/json" },
       });
@@ -183,6 +190,13 @@ export async function POST(req: NextRequest) {
       return jsonError(500, "preview write");
     }
 
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "preview",
+      at: capturedAt, localDate,
+      itemCount: det.itemCount, detectedClass: det.class,
+      confidence: det.confidence, clientConf,
+    });
     return jsonOk({
       scanId,
       detectedClass: det.class,
@@ -208,6 +222,13 @@ export async function POST(req: NextRequest) {
   const prior = await getStoredScan(scanId);
   if (prior) {
     if (prior.uid !== ctx.uid) return jsonError(409, "duplicate scan");
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "replay",
+      at: new Date(), localDate,
+      basePoints: prior.basePoints, streakBonus: prior.streakBonus, totalPoints: prior.totalPoints,
+      itemCount: prior.itemCount, detectedClass: prior.detectedClass, confidence: prior.confidence,
+    });
     return jsonOk(replayResult(scanId, prior, prof));
   }
 
@@ -215,12 +236,22 @@ export async function POST(req: NextRequest) {
     const last = prof.lastScanAt instanceof Date ? prof.lastScanAt : new Date(prof.lastScanAt as unknown as string);
     const wait = COOLDOWN_MS - (Date.now() - last.getTime());
     if (wait > 0) {
+      await logScanAttempt({
+        scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+        outcome: "denied_cooldown",
+        at: new Date(), localDate,
+      });
       return new Response(JSON.stringify({ error: "cooldown", retryAfter: Math.ceil(wait / 1000) }), {
         status: 429, headers: { "Content-Type": "application/json" },
       });
     }
   }
   if (prof.dailyScanDate === localDate && (prof.dailyScans ?? 0) >= DAILY_LIMIT) {
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "denied_daily_cap",
+      at: new Date(), localDate,
+    });
     return new Response(JSON.stringify({ error: "daily_limit", limit: DAILY_LIMIT }), {
       status: 429, headers: { "Content-Type": "application/json" },
     });
@@ -235,6 +266,13 @@ export async function POST(req: NextRequest) {
   }
   const dup = await isDuplicateScan(ctx.uid, hash, phash);
   if (dup.dup) {
+    const dupReason: "hash" | "phash" = dup.reason === "sha256" ? "hash" : "phash";
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: dupReason === "hash" ? "denied_dup_hash" : "denied_dup_phash",
+      at: new Date(), localDate,
+      dupReason,
+    });
     return new Response(
       JSON.stringify({ error: "duplicate scan", reason: dup.reason }),
       { status: 409, headers: { "Content-Type": "application/json" } },
@@ -250,6 +288,13 @@ export async function POST(req: NextRequest) {
     return jsonError(500, "detector error");
   }
   if (!det.accepted) {
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "rejected_not_pet",
+      at: new Date(), localDate,
+      confidence: det.confidence, clientConf,
+      itemCount: det.itemCount, detectedClass: det.class,
+    });
     return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
       status: 422, headers: { "Content-Type": "application/json" },
     });
@@ -304,6 +349,14 @@ export async function POST(req: NextRequest) {
   }
   bustLeaderboardCaches();
 
+  await logScanAttempt({
+    scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+    outcome: "awarded",
+    at: capturedAt, localDate,
+    basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+    itemCount: det.itemCount, detectedClass: det.class,
+    confidence: det.confidence, clientConf,
+  });
   return jsonOk({
     scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
     pointedItems,
