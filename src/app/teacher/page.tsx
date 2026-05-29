@@ -64,6 +64,7 @@ export default function TeacherDashPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- re-fetch students when q/classKey change; loading flag must flip each run
     setStudentsLoading(true);
     getStudents({ q, classKey })
       .then((r) => setStudents(r.students ?? []))

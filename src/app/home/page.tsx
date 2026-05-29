@@ -46,7 +46,9 @@ export default function HomePage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch; load() resets loading/error and is reused by the retry button
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const pts = profile?.totalPoints ?? 0;
@@ -54,6 +56,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (pts === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset count-up animation when points drop to 0
       setDisplayPts(0);
       return;
     }
@@ -74,10 +77,6 @@ export default function HomePage() {
   const next = getNextRank(pts);
   const curDef = RANKS.find((r) => r.k === cur.k) ?? RANKS[0];
   const nextDef = RANKS.find((r) => r.k === next.k) ?? RANKS[RANKS.length - 1];
-  const pct = Math.min(
-    100,
-    ((pts - curDef.min) / (curDef.max - curDef.min)) * 100,
-  );
   const goalPct =
     goal && goal.targetBottles > 0
       ? Math.min(100, (goal.currentBottles / goal.targetBottles) * 100)
@@ -86,12 +85,16 @@ export default function HomePage() {
 
   const [greeting, setGreeting] = useState("สวัสดี");
   useEffect(() => {
+    // client-only time read; computing in render would cause a hydration mismatch (server hour ≠ client hour)
     const h = new Date().getHours();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setGreeting(h < 12 ? "สวัสดีตอนเช้า" : h < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น");
   }, []);
 
   const [role, setRole] = useState<string | null>(null);
   useEffect(() => {
+    // sessionStorage is undefined during SSR; reading it must happen client-side in an effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setRole(sessionStorage.getItem("role"));
   }, []);
   const isAdmin = role === "admin";

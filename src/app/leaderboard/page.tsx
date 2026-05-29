@@ -35,6 +35,7 @@ export default function LeaderboardPage() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'โหลดข้อมูลไม่สำเร็จ'));
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- re-fetch when scope/period change; load sets its own loading flag each run
   useEffect(() => { if (scope !== 'forest') load(scope, period); }, [scope, period]);
 
   function loadForest() {
@@ -50,6 +51,7 @@ export default function LeaderboardPage() {
       .finally(() => setForestLoading(false))
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- re-fetch forest data when scope changes; loadForest sets its own loading flag
   useEffect(() => { if (scope === 'forest') loadForest() }, [scope])
 
   const top3 = (data?.entries ?? []).slice(0, 3);

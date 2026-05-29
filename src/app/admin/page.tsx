@@ -269,6 +269,7 @@ export default function AdminPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load on mount; refreshers set loading flags and are reused by action handlers
   useEffect(() => { refreshChanges(); refreshAdjustments(); refreshAdjustReqs(); refreshUserEdits(); }, []);
 
   return (

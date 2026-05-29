@@ -11,11 +11,8 @@ const ALL_COLUMNS = [
 ];
 
 export function SheetsExportModal({ onClose }: { onClose: () => void }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
-
-  const [from, setFrom] = useState(monthAgo);
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState(() => new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10));
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [classKey, setClassKey] = useState("");
   const [groupBy, setGroupBy] = useState<"scan" | "student" | "class">("scan");
   const [columns, setColumns] = useState<string[]>(ALL_COLUMNS);

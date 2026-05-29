@@ -31,6 +31,7 @@ function TeacherProfileContent() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'โหลดข้อมูลนักเรียนไม่สำเร็จ'));
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- re-fetch + clear error when uid changes
   useEffect(() => { load(); }, [uid]);
 
   async function handleExport() {

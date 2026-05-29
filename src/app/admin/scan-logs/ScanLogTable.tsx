@@ -28,10 +28,8 @@ interface Props {
 }
 
 export function ScanLogTable({ fixedUid, initialFrom, initialTo }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
-  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10);
-  const [from, setFrom] = useState(initialFrom ?? weekAgo);
-  const [to, setTo] = useState(initialTo ?? today);
+  const [from, setFrom] = useState(() => initialFrom ?? new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10));
+  const [to, setTo] = useState(() => initialTo ?? new Date().toISOString().slice(0, 10));
   const [outcomes, setOutcomes] = useState<AdminScanLogOutcome[]>([]);
   const [uid, setUid] = useState(fixedUid ?? '');
   const [classKey, setClassKey] = useState('');
@@ -73,7 +71,11 @@ export function ScanLogTable({ fixedUid, initialFrom, initialTo }: Props) {
     load(null, next);
   }
 
-  useEffect(() => { load(null); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch; load() sets a loading flag and is reused by Apply/pagination/chips
+    load(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

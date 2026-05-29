@@ -34,6 +34,7 @@ export default function ProfilePage() {
       });
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- initial fetch; load() resets loading/error and is reused by the retry button
   useEffect(() => { load(); }, []);
 
   async function handleLogout() {

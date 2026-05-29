@@ -66,12 +66,10 @@ export async function logScanAttempt(input: ScanAttemptLog): Promise<void> {
     const v = input[k];
     if (v !== undefined) payload[k] = v;
   }
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(payload));
   try {
     await writeScanAttempt(input);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("scanAttempts write failed", {
       scanId: input.scanId,
       uid: input.uid,
@@ -100,6 +98,5 @@ export function logScanEvent(outcome: StdoutOnlyOutcome, ctx: StdoutEventCtx = {
       payload.errMessage = String(e);
     }
   }
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(payload));
 }
