@@ -79,6 +79,11 @@ const ALL_OUTCOMES: ScanOutcome[] = [
   "rejected_not_pet",
 ];
 
+// Returns a count per outcome within the uid/classKey/date scope. By design this
+// IGNORES q.outcomes: the result is the full breakdown that powers the UI chips,
+// so it must stay stable while the user toggles which outcomes the table shows.
+// (botty-ax0 — confirmed intentional, not a bug.)
+
 export async function countScanAttemptsByOutcome(q: ScanLogQuery): Promise<Record<ScanOutcome, number>> {
   const fs = fbFirestore();
   const results = await Promise.all(

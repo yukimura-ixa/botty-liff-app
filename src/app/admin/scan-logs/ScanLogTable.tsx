@@ -40,14 +40,14 @@ export function ScanLogTable({ fixedUid, initialFrom, initialTo }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  async function load(cursor: string | null = null) {
+  async function load(cursor: string | null = null, outcomesArg: AdminScanLogOutcome[] = outcomes) {
     setLoading(true);
     setError('');
     try {
       const q: AdminScanLogQuery = {
         from: from ? `${from}T00:00:00.000Z` : undefined,
         to: to ? `${to}T23:59:59.999Z` : undefined,
-        outcome: outcomes.length ? outcomes : undefined,
+        outcome: outcomesArg.length ? outcomesArg : undefined,
         uid: fixedUid ?? (uid || undefined),
         classKey: classKey || undefined,
         scanId: scanId || undefined,
@@ -63,6 +63,16 @@ export function ScanLogTable({ fixedUid, initialFrom, initialTo }: Props) {
     }
   }
 
+  // Chips double as the outcome filter: clicking toggles the outcome in/out of
+  // the table query. The chip COUNTS, however, are scope totals (uid/class/date)
+  // and intentionally ignore the outcome filter — see countScanAttemptsByOutcome.
+  // So toggling changes which rows show, not the numbers. (botty-ax0)
+  function toggleOutcome(o: AdminScanLogOutcome) {
+    const next = outcomes.includes(o) ? outcomes.filter((x) => x !== o) : [...outcomes, o];
+    setOutcomes(next);
+    load(null, next);
+  }
+
   useEffect(() => { load(null); /* eslint-disable-next-line */ }, []);
 
   return (
@@ -73,25 +83,34 @@ export function ScanLogTable({ fixedUid, initialFrom, initialTo }: Props) {
         {!fixedUid && <input placeholder="uid" value={uid} onChange={(e) => setUid(e.target.value)} />}
         {!fixedUid && <input placeholder="classKey" value={classKey} onChange={(e) => setClassKey(e.target.value)} />}
         {!fixedUid && <input placeholder="scanId" value={scanId} onChange={(e) => setScanId(e.target.value)} />}
-        <select multiple value={outcomes} onChange={(e) => {
-          const opts = Array.from(e.target.selectedOptions).map((o) => o.value as AdminScanLogOutcome);
-          setOutcomes(opts);
-        }} style={{ minWidth: 180, height: 100 }}>
-          {OUTCOMES.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
         <button onClick={() => load(null)} disabled={loading}>Apply</button>
       </div>
 
       {data && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {OUTCOMES.map((o) => (
-            <span key={o} style={{
-              padding: '2px 8px', borderRadius: 999, fontSize: 12,
-              background: OUTCOME_COLORS[o], color: 'white',
-            }}>
-              {o} {data.aggregates[o] ?? 0}
-            </span>
-          ))}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          {OUTCOMES.map((o) => {
+            const active = outcomes.includes(o);
+            const anySelected = outcomes.length > 0;
+            return (
+              <button key={o} onClick={() => toggleOutcome(o)} disabled={loading}
+                title={active ? 'click to remove from table filter' : 'click to filter table to this outcome'}
+                style={{
+                  padding: '2px 8px', borderRadius: 999, fontSize: 12, cursor: 'pointer',
+                  background: OUTCOME_COLORS[o], color: 'white',
+                  border: active ? '2px solid #111' : '2px solid transparent',
+                  opacity: anySelected && !active ? 0.4 : 1,
+                }}>
+                {o} {data.aggregates[o] ?? 0}
+              </button>
+            );
+          })}
+          {outcomes.length > 0 && (
+            <button onClick={() => { setOutcomes([]); load(null, []); }} disabled={loading}
+              style={{ fontSize: 12, padding: '2px 8px' }}>
+              clear outcome filter
+            </button>
+          )}
+          <span style={{ fontSize: 11, color: '#888' }}>counts = totals in scope (ignore outcome filter)</span>
         </div>
       )}
 
