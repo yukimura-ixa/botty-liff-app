@@ -111,14 +111,36 @@ bd close <id>         # Complete work
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
 
-## Post-deploy: enable Firestore TTL for scanAttempts
+## Post-deploy: scanAttempts indexes + TTL
 
-After the first deployment that includes scan attempt logging, enable the TTL
-policy on the `scanAttempts` collection so 30-day-old rows auto-purge:
+Two manual console/CLI steps after deploying scan attempt logging. Both are
+ops actions an agent cannot perform from code — a human must run them.
+
+### 1. Deploy composite indexes (required, or the Scan Logs UI 500s)
+
+`scanAttempts` needs composite indexes for the filter combos the Scan Logs UI
+sends (e.g. teacher tab issues `outcome==` + `uid==` + `at`-range). They live in
+`firestore.indexes.json`. Deploy them:
+
+```bash
+firebase deploy --only firestore:indexes
+```
+
+If an exotic admin filter combo still 500s, Firestore's error returns a console
+link that creates the exact missing index — add it to `firestore.indexes.json`.
+
+### 2. Enable Firestore TTL (requires Blaze)
+
+Decision (botty-2yh): project upgraded to **Blaze** so TTL can run. TTL and
+Cloud Functions are unavailable on the Spark free tier. On Blaze the free daily
+allowances (20K writes, 50K reads, 1 GiB) still apply, so 30-day retention costs
+~pennies/month at expected volume.
 
 1. Open the Firebase console → Firestore → TTL.
 2. Add a policy on collection `scanAttempts`, field `expiresAt`.
 3. Status should turn "Active" within ~24h.
 
-Without this step the collection grows unbounded.
+`expiresAt` is already written by `writeScanAttempt` (`src/server/scan/log-repo.ts`).
+Without this step the collection grows unbounded — and on Spark the 20K writes/day
+free cap is the binding wall (logging burns one write per scan attempt).
 
