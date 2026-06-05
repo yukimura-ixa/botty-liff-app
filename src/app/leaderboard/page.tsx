@@ -22,6 +22,7 @@ export default function LeaderboardPage() {
   const [forestClasses,    setForestClasses]    = useState<ClassEntry[]>([])
   const [forestThresholds, setForestThresholds] = useState<[number, number, number]>([1000, 2500, 5000])
   const [myClassKey,       setMyClassKey]       = useState('')
+  const [myHeadlineTree,   setMyHeadlineTree]   = useState<string | undefined>(undefined)
   const [forestLoading,    setForestLoading]    = useState(true)
   const [forestError,      setForestError]      = useState('')
 
@@ -46,6 +47,7 @@ export default function LeaderboardPage() {
         setForestClasses(cls.classes)
         setForestThresholds(stages.thresholds)
         setMyClassKey(me.classKey ?? '')
+        setMyHeadlineTree(me.headlineTree)
       })
       .catch((e: unknown) => setForestError(e instanceof Error ? e.message : 'โหลดไม่สำเร็จ'))
       .finally(() => setForestLoading(false))
@@ -114,6 +116,7 @@ export default function LeaderboardPage() {
               classes={forestClasses}
               myClassKey={myClassKey}
               thresholds={forestThresholds}
+              myHeadlineTree={myHeadlineTree}
             />
           )}
         </div>

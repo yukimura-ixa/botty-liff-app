@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { theme as t } from '@/lib/theme'
 import { formatClassKey, type ClassEntry } from '@/lib/api'
+import { TreeVariant } from '@/components/botty/trees/TreeVariant'
 
 export function classStage(pts: number, thresholds: [number, number, number]): number {
   return thresholds.filter(th => pts >= th).length
@@ -139,7 +140,7 @@ function IslandSurface({ stage, mine }: { stage: number; mine: boolean }) {
 
 // ─── Island scenery (trees) ───────────────────────────────────────
 
-function IslandScenery({ stage, mine }: { stage: number; mine: boolean }) {
+function IslandScenery({ stage, mine, myHeadlineTree }: { stage: number; mine: boolean; myHeadlineTree?: string }) {
   function upright(children: ReactNode, x: number, y: number) {
     return (
       <div style={{
@@ -161,19 +162,22 @@ function IslandScenery({ stage, mine }: { stage: number; mine: boolean }) {
       {upright(<MidTree/>,   0,  30)}
     </>
   )
+  const myTree = mine
+    ? <TreeVariant variantId={myHeadlineTree ?? 'oak'} stage={3} size={52} />
+    : <BigTree mine={false}/>
   return (
     <>
-      {upright(<BigTree mine={mine}/>, -55, -25)}
-      {upright(<BigTree mine={mine}/>,  20, -40)}
-      {upright(<MidTree/>,             -20,  20)}
-      {upright(<MidTree/>,              60,  10)}
+      {upright(myTree,          -55, -25)}
+      {upright(<BigTree/>,       20, -40)}
+      {upright(<MidTree/>,      -20,  20)}
+      {upright(<MidTree/>,       60,  10)}
     </>
   )
 }
 
 // ─── Full island ──────────────────────────────────────────────────
 
-function Island({ stage, mine }: { stage: number; mine: boolean }) {
+function Island({ stage, mine, myHeadlineTree }: { stage: number; mine: boolean; myHeadlineTree?: string }) {
   return (
     <div style={{
       position: 'absolute', left: '50%', top: '50%',
@@ -183,7 +187,7 @@ function Island({ stage, mine }: { stage: number; mine: boolean }) {
     }}>
       <IslandBody stage={stage}/>
       <IslandSurface stage={stage} mine={mine}/>
-      <IslandScenery stage={stage} mine={mine}/>
+      <IslandScenery stage={stage} mine={mine} myHeadlineTree={myHeadlineTree}/>
     </div>
   )
 }
@@ -194,9 +198,10 @@ export interface ClassForestProps {
   classes: ClassEntry[]
   myClassKey: string
   thresholds: [number, number, number]
+  myHeadlineTree?: string
 }
 
-export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProps) {
+export function ClassForest({ classes, myClassKey, thresholds, myHeadlineTree }: ClassForestProps) {
   const [activeIdx, setActiveIdx] = useState(0)
 
   if (classes.length === 0) {
@@ -236,7 +241,7 @@ export function ClassForest({ classes, myClassKey, thresholds }: ClassForestProp
           transform: 'rotateX(58deg) rotateZ(-22deg)',
           animation: 'bpIslandIn 0.4s ease-out',
         }}>
-          <Island stage={stage} mine={isMine}/>
+          <Island stage={stage} mine={isMine} myHeadlineTree={isMine ? myHeadlineTree : undefined}/>
         </div>
 
         {/* HUD overlay */}
