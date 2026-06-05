@@ -34,6 +34,17 @@ function coerceProfile(raw: Record<string, unknown>): Profile {
   if (createdAt) p.createdAt = createdAt;
   if (updatedAt) p.updatedAt = updatedAt;
   if (lastScanAt) p.lastScanAt = lastScanAt; else delete p.lastScanAt;
+  p.coins = typeof raw.coins === "number" ? raw.coins : 0;
+  p.coinsLifetime = typeof raw.coinsLifetime === "number" ? raw.coinsLifetime : 0;
+  p.ownedTrees = Array.isArray(raw.ownedTrees) && raw.ownedTrees.length
+    ? (raw.ownedTrees as string[])
+    : ["oak"];
+  p.headlineTree = typeof raw.headlineTree === "string" && raw.headlineTree
+    ? raw.headlineTree
+    : "oak";
+  p.claimedGoalMilestones = Array.isArray(raw.claimedGoalMilestones)
+    ? (raw.claimedGoalMilestones as number[])
+    : [];
   return p;
 }
 

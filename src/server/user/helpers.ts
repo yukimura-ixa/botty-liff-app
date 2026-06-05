@@ -15,6 +15,11 @@ export type Profile = {
   lastScanLocalDate: string;
   dailyScans: number;
   dailyScanDate: string;
+  coins: number;
+  coinsLifetime: number;
+  ownedTrees: string[];
+  headlineTree: string;
+  claimedGoalMilestones: number[];
   status: "pending_onboard" | "active" | "inactive";
   consent: boolean;
   createdAt: Date;
@@ -42,6 +47,11 @@ export function defaultPendingProfile(lineUserId: string, now: Date): Profile {
     lastScanLocalDate: "",
     dailyScans: 0,
     dailyScanDate: "",
+    coins: 0,
+    coinsLifetime: 0,
+    ownedTrees: ["oak"],
+    headlineTree: "oak",
+    claimedGoalMilestones: [],
     status: "pending_onboard",
     consent: false,
     createdAt: now,
