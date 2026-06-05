@@ -4,7 +4,7 @@ export type AdminProfile = {
   classKey: string;
   classGrade: number;
   classRoom: number;
-  role: "student" | "admin";
+  role: "student" | "council" | "admin";
   totalPoints: number;
   status: string;
 };

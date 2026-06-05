@@ -73,7 +73,7 @@ export async function listScanAttempts(q: ScanLogQuery): Promise<{ rows: ScanLog
 }
 
 const ALL_OUTCOMES: ScanOutcome[] = [
-  "awarded", "preview", "replay",
+  "awarded", "pending", "preview", "replay",
   "denied_cooldown", "denied_daily_cap",
   "denied_dup_hash", "denied_dup_phash",
   "rejected_not_pet",
@@ -98,7 +98,7 @@ export async function countScanAttemptsByOutcome(q: ScanLogQuery): Promise<Recor
     }),
   );
   const counts: Record<ScanOutcome, number> = {
-    awarded: 0, preview: 0, replay: 0,
+    awarded: 0, pending: 0, preview: 0, replay: 0,
     denied_cooldown: 0, denied_daily_cap: 0,
     denied_dup_hash: 0, denied_dup_phash: 0,
     rejected_not_pet: 0,

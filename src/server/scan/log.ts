@@ -2,6 +2,7 @@ import { writeScanAttempt } from "./log-repo";
 
 export type ScanOutcome =
   | "awarded"
+  | "pending"
   | "preview"
   | "replay"
   | "denied_cooldown"

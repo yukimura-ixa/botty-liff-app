@@ -98,4 +98,17 @@ describe("changeRole", () => {
     expect((set!.data as { fromRole: string; toRole: string; reason: string }).toRole).toBe("student");
     expect((set!.data as { reason: string }).reason).toBe("cleanup");
   });
+
+  it("promotes a student to council, writes update + audit doc", async () => {
+    globalThis.__fsMockRoleChange = makeFsMock({ targetExists: true, targetRole: "student" });
+    const mod = await importMod();
+    await mod.changeRole("u1", "u2", "council", "promote");
+    const ops = globalThis.__fsMockRoleChange!.__ops;
+    const upd = ops.find((o) => o.kind === "update" && o.refKey === "users/u1");
+    expect(upd).toBeTruthy();
+    expect((upd!.data as { role: string }).role).toBe("council");
+    const set = ops.find((o) => o.kind === "set" && o.refKey.startsWith("roleChanges/"));
+    expect((set!.data as { fromRole: string; toRole: string }).fromRole).toBe("student");
+    expect((set!.data as { fromRole: string; toRole: string }).toRole).toBe("council");
+  });
 });

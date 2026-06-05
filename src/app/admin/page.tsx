@@ -4,10 +4,10 @@ import { theme as t } from "@/lib/theme";
 import {
   adminListUsers, adminListRoleChanges, adminListUserEdits,
   adminListAdjustments, adminListAdjustRequests, adminDecideAdjustRequest,
-  adminUpdateUser, adminDeleteUser,
+  adminUpdateUser, adminDeleteUser, adminChangeRole,
   type UserRow, type RoleChange, type UserEdit,
   type Adjustment, type AdjustRequest,
-  type UserPatch,
+  type UserPatch, type AssignableRole,
 } from "@/lib/api";
 
 const KANIT = "var(--font-kanit), system-ui";
@@ -25,6 +25,7 @@ type Tab = "users" | "adjust" | "audit";
 function roleChip(role: string) {
   const map: Record<string, { bg: string; fg: string }> = {
     admin: { bg: t.gold, fg: t.ink },
+    council: { bg: t.forest, fg: "white" },
     student: { bg: `${t.mint}cc`, fg: t.forest },
   };
   const c = map[role] ?? map.student;
@@ -49,6 +50,7 @@ export default function AdminPage() {
   const [q, setQ] = useState("");
   const [err, setErr] = useState("");
 
+  const [roleBusy, setRoleBusy] = useState("");
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     fullName: string;
@@ -250,6 +252,22 @@ export default function AdminPage() {
   }
 
 
+  // Promote a student to council (so they can approve scans) or demote back.
+  async function changeRoleTo(u: UserRow, target: AssignableRole) {
+    if (u.role === target) return;
+    const labels: Record<AssignableRole, string> = { student: "นักเรียน", council: "สภานักเรียน" };
+    if (!confirm(`เปลี่ยน ${u.fullName || u.uid} → ${labels[target]}?`)) return;
+    setRoleBusy(u.uid);
+    try {
+      await adminChangeRole(u.uid, target);
+      const list = await adminListUsers({ role: roleFilter, q });
+      setUsers(list.users ?? []);
+      await refreshChanges();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "failed");
+    } finally { setRoleBusy(""); }
+  }
+
   async function submitDelete(u: UserRow) {
     setEditBusy(true);
     setEditErr('');
@@ -402,6 +420,7 @@ export default function AdminPage() {
               >
                 <option value="">ALL</option>
                 <option value="student">STUDENT</option>
+                <option value="council">COUNCIL</option>
                 <option value="admin">ADMIN</option>
               </select>
             </div>
@@ -423,7 +442,7 @@ export default function AdminPage() {
                   }}>
                     <div style={{
                       display: "grid",
-                      gridTemplateColumns: "24px 1fr auto auto",
+                      gridTemplateColumns: "24px 1fr auto auto auto",
                       alignItems: "center", gap: 10,
                       padding: "11px 14px",
                     }}>
@@ -446,6 +465,28 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div>{roleChip(u.role)}</div>
+                      <div>
+                        {u.role === 'admin' ? (
+                          <span style={{ fontSize: 10, color: t.gold, fontFamily: MONO, letterSpacing: 0.5 }}>
+                            LOCKED
+                          </span>
+                        ) : (
+                          <select
+                            disabled={roleBusy === u.uid}
+                            value={u.role}
+                            onChange={(e) => changeRoleTo(u, e.target.value as AssignableRole)}
+                            style={{
+                              padding: "6px 8px", borderRadius: 8,
+                              background: t.ink, color: t.gold, border: `1px solid ${t.forest}`,
+                              fontSize: 11, fontWeight: 700, fontFamily: MONO, letterSpacing: 0.4,
+                              cursor: roleBusy === u.uid ? "default" : "pointer",
+                            }}
+                          >
+                            <option value="student">STUDENT</option>
+                            <option value="council">COUNCIL</option>
+                          </select>
+                        )}
+                      </div>
                       <div>
                         {u.role !== 'admin' && (
                           <button

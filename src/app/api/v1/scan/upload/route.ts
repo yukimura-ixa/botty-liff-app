@@ -11,6 +11,8 @@ import { imageHash, perceptualHash, phashBucket } from "@/server/scan/hash";
 import { detect, detectorConfigFromEnv } from "@/server/scan/detect";
 import { uploadScanImage } from "@/server/scan/storage";
 import { awardScan } from "@/server/scan/award";
+import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
+import { createPending, hasOutstandingPending } from "@/server/scan/pending";
 import { isDuplicateScan, getStoredScan, type StoredScan } from "@/server/scan/repo";
 import { isValidScanId } from "@/server/scan/scan-id";
 import { recordPreviewScan } from "@/server/scan/preview";
@@ -25,6 +27,16 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MIN_IMAGE_BYTES = 4 * 1024;
 const COOLDOWN_MS = 60_000;
 const DAILY_LIMIT = 20;
+
+// Staff-QR confirm gate. "enforce" (default): upload creates a pending scan and
+// points are awarded only after the student scans a staff QR (see scan/confirm).
+// "off": legacy immediate award. "log": award immediately AND create a pending
+// doc (shadow mode). Mirrors mode() in src/app/api/v1/scan/confirm/route.ts.
+type Mode = "off" | "log" | "enforce";
+function mode(): Mode {
+  const m = (process.env.BIN_CONFIRM_MODE ?? "enforce") as Mode;
+  return m === "off" || m === "log" ? m : "enforce";
+}
 
 function sniffImageMime(buf: Buffer): "image/jpeg" | "image/png" | null {
   if (buf.length < 8) return null;
@@ -126,7 +138,7 @@ export async function POST(req: NextRequest) {
     logScanEvent("no_profile", { uid: ctx.uid, scanId });
     return jsonError(404, "profile");
   }
-  const SCAN_ELIGIBLE_ROLES = new Set(["student", "admin"]);
+  const SCAN_ELIGIBLE_ROLES = new Set(["student", "council", "admin"]);
   if (!SCAN_ELIGIBLE_ROLES.has(prof.role) || prof.status !== "active") {
     logScanEvent("not_eligible", {
       uid: ctx.uid,
@@ -280,6 +292,18 @@ export async function POST(req: NextRequest) {
   }
   const phashBkt = phash ? phashBucket(phash) : undefined;
 
+  // Staff-QR confirm flow: one outstanding pending scan at a time. Blocks a second
+  // upload while the student still owes a QR confirm for the previous one.
+  const m = mode();
+  if (m !== "off") {
+    const outstanding = await hasOutstandingPending(ctx.uid);
+    if (outstanding) {
+      const expiresInSec = Math.max(0, Math.ceil((outstanding.expiresAt.getTime() - Date.now()) / 1000));
+      return new Response(JSON.stringify({ error: "pending_exists", pendingId: outstanding.id, expiresInSec }), {
+        status: 409, headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
 
   let det;
   try { det = await detect(detectorConfigFromEnv(), buf); }
@@ -339,30 +363,102 @@ export async function POST(req: NextRequest) {
     newRank,
   };
 
-  const { awarded } = await awardScan(awardArgs);
-  if (!awarded) {
-    // A concurrent submit of the same scanId won the race; replay its result.
-    const prior = await getStoredScan(scanId);
-    if (prior && prior.uid === ctx.uid) return jsonOk(replayResult(scanId, prior, prof));
-    logScanEvent("error_award_race", { uid: ctx.uid, scanId });
-    return jsonError(409, "duplicate scan");
+  // off / log: award immediately (legacy behavior; "log" also shadows a pending doc).
+  if (m === "off" || m === "log") {
+    const { awarded } = await awardScan(awardArgs);
+    if (!awarded) {
+      // A concurrent submit of the same scanId won the race; replay its result.
+      const prior = await getStoredScan(scanId);
+      if (prior && prior.uid === ctx.uid) return jsonOk(replayResult(scanId, prior, prof));
+      logScanEvent("error_award_race", { uid: ctx.uid, scanId });
+      return jsonError(409, "duplicate scan");
+    }
+    bustLeaderboardCaches();
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "awarded",
+      at: capturedAt, localDate,
+      basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+      itemCount: det.itemCount, detectedClass: det.class,
+      confidence: det.confidence, clientConf,
+    });
   }
-  bustLeaderboardCaches();
 
-  await logScanAttempt({
-    scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
-    outcome: "awarded",
-    at: capturedAt, localDate,
-    basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
-    itemCount: det.itemCount, detectedClass: det.class,
-    confidence: det.confidence, clientConf,
-  });
+  // log / enforce: stage a pending scan that the staff-QR confirm will award.
+  let pendingId: string | undefined;
+  if (m === "log" || m === "enforce") {
+    pendingId = ulid();
+    try {
+      await createPending(pendingId, buildPendingDoc({
+        uid: ctx.uid,
+        classKey: prof.classKey ?? "",
+        scanId,
+        detectedClass: det.class,
+        itemCount: det.itemCount,
+        confidence: det.confidence,
+        basePoints: pt.basePoints,
+        streakBonus: pt.streakBonus,
+        totalPoints: pt.total,
+        isFirstOfDay,
+        localDate,
+        streakDays: newStreak,
+        newDailyCount: newDaily,
+        newTotalPoints: newTotal,
+        newRank,
+        prevRank: prof.rank ?? "ต้นกล้า",
+        imagePath: imageUrl,
+        imageHash: hash,
+        phash,
+        phashBucket: phashBkt,
+        capturedAt,
+      }));
+    } catch (err) {
+      console.error("pending create failed", ctx.uid, scanId, err);
+      if (m === "enforce") return jsonError(500, "pending create failed");
+      pendingId = undefined;
+    }
+    if (m === "enforce" && pendingId) {
+      await logScanAttempt({
+        scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+        outcome: "pending",
+        at: capturedAt, localDate,
+        basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+        itemCount: det.itemCount, detectedClass: det.class,
+        confidence: det.confidence, clientConf,
+      });
+    }
+  }
+
+  const expiresInSec = Math.floor(PENDING_TTL_MS / 1000);
+  if (m === "off") {
+    return jsonOk({
+      scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
+      pointedItems,
+      basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+      newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
+      awarded: true,
+      annotatedImage: det.annotatedImage,
+    });
+  }
+  if (m === "log") {
+    return jsonOk({
+      pendingId, expiresInSec,
+      scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
+      pointedItems,
+      basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+      newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
+      awarded: true,
+      annotatedImage: det.annotatedImage,
+    });
+  }
+  // enforce: points await the staff-QR confirm.
   return jsonOk({
+    pendingId, expiresInSec,
     scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
     pointedItems,
     basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
     newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
-    awarded: true,
+    awarded: false,
     annotatedImage: det.annotatedImage,
   });
 }

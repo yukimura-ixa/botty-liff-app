@@ -30,15 +30,16 @@ vercel env pull      # sync .env.local from Vercel
 ## Routes (`src/app/`)
 - `/` LINE login bootstrap → `/onboard` if new, else `/home`
 - `/home` `/scan` `/history` `/leaderboard` `/profile` — student
+- `/approver` — staff-QR session (rotating QR for scan confirmation; `council`/`admin` only)
 - `/teacher` `/teacher/student` — dashboard, KPIs, sheets export, student point adjust (admin-only; paths kept under `/teacher`)
-- `/admin` — users, point adjust approval, audit (admin-only)
+- `/admin` — users, point adjust approval, role promote-to-council, audit (admin-only)
 - `/api/v1/*` — backend routes (Node runtime), bearer = Firebase ID token
 
 ## Roles
-`student` → `admin`. Guard in `src/server/lib/role-guard.ts` (`hasRole(ctx, "admin")`). Admins set manually in Firestore (never via API). Admin absorbs all former teacher powers. (Legacy `council`/`teacher` roles removed; migrate any leftover accounts to `student` via `scripts/downgrade-roles.ts`.)
+`student` → `council` → `admin`. Admin guard in `src/server/lib/role-guard.ts` (`hasRole(ctx, "admin")`); scan-approver guard is `canApprove(role)` = `council || admin`. Admins set manually in Firestore (never via API). `council` is assigned by an admin via the `/admin` users UI (`changeRole`, `AssignableRole = student|council`); council members approve student scans via the staff-QR flow and remain scan-eligible. (`teacher` role stays removed; admin absorbs former teacher powers.)
 
 ## Domain quirks
-- Scan flow: upload image → AI detect class → award base + streak bonus immediately. Abuse guards: duplicate-image hash, 60s cooldown, daily limit 20, IP rate limit. (No approver-QR confirmation step.)
+- Scan flow: upload image → AI detect class → create a **pending** scan → student scans a council/admin staff-QR → `/api/v1/scan/confirm` verifies the HMAC slot token → award base + streak bonus. Gated by `BIN_CONFIRM_MODE` (default `enforce`; `off` = legacy immediate award, `log` = award + shadow pending). Abuse guards: duplicate-image hash, 60s cooldown, daily limit 20, IP rate limit, one outstanding pending at a time.
 - Point adjustments: ≤±10 immediate, ±11–50 needs admin approval (dual-approval). `TEACHER_IMMEDIATE_CAP` / `TEACHER_REQUEST_CAP` in `src/lib/api.ts`.
 - Storage: migrated GCS → Vercel Blob (commit `ef2da57`). `httpsUrl()` in `src/server/scan/storage.ts:19` still resolves legacy `gs://` rows.
 - Firebase Admin needs `GCP_SERVICE_ACCOUNT_JSON` + `GCP_PROJECT` (Firestore auth, not GCS).
@@ -52,6 +53,8 @@ vercel env pull      # sync .env.local from Vercel
 | `NEXT_PUBLIC_LIFF_ID` | LINE LIFF init |
 | `NEXT_PUBLIC_FIREBASE_*` | Firebase client config |
 | `LINE_CHANNEL_ID` | LINE token verify |
+| `STAFF_QR_SECRET` | HMAC secret (≥16 bytes) for staff-QR slot tokens |
+| `BIN_CONFIRM_MODE` | scan confirm gate: `off` \| `log` \| `enforce` (default `enforce`) |
 
 ## Layout
 - `src/app/` — routes, API handlers
