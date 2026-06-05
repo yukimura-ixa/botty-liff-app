@@ -17,6 +17,7 @@ import { recordPreviewScan } from "@/server/scan/preview";
 import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
 import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-limit";
 import { logScanAttempt, logScanEvent } from "@/server/scan/log";
+import { coinReward } from "@/server/shop/earn";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -316,6 +317,7 @@ export async function POST(req: NextRequest) {
   const pointedItems = Math.min(DEFAULT_POINTS_CONFIG.maxItemsPerScan, Math.max(1, rawItems));
   const newTotal = (prof.totalPoints ?? 0) + pt.total;
   const newRank = rankForPoints(newTotal);
+  const coins = coinReward(newStreak, newDaily);
 
   const awardArgs = {
     uid: ctx.uid,
@@ -337,6 +339,7 @@ export async function POST(req: NextRequest) {
     newStreak,
     newDaily,
     newRank,
+    coinReward: coins,
   };
 
   const { awarded } = await awardScan(awardArgs);

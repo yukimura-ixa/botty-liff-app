@@ -8,6 +8,7 @@ type AwardFromScanInput = ScanDocInput & {
   newStreak: number;
   newDaily: number;
   newRank: string;
+  coinReward: number;
 };
 
 /**
@@ -31,6 +32,8 @@ export async function awardScan(i: AwardFromScanInput): Promise<{ awarded: boole
     tx.set(scanRef, buildScanDoc(i));
     tx.update(userRef, {
       totalPoints: FieldValue.increment(i.totalPoints),
+      coins: FieldValue.increment(i.coinReward),
+      coinsLifetime: FieldValue.increment(i.coinReward),
       totalScans: FieldValue.increment(1),
       streakDays: i.newStreak,
       lastScanLocalDate: i.localDate,
