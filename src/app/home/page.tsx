@@ -12,7 +12,8 @@ import {
   type StudentProfile,
   type SchoolGoal,
 } from "@/lib/api";
-import { RankTree } from "@/components/botty/RankTree";
+import { RANK_STAGE } from "@/components/botty/RankTree";
+import { TreeVariant } from "@/components/botty/trees/TreeVariant";
 
 export default function HomePage() {
   const router = useRouter();
@@ -245,6 +246,20 @@ export default function HomePage() {
               >
                 pts
               </span>
+              <span
+                style={{
+                  background: t.mint,
+                  color: t.forest,
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: 16,
+                  fontSize: 13,
+                  marginLeft: 10,
+                  verticalAlign: "middle",
+                }}
+              >
+                🪙 {profile?.coins ?? 0}
+              </span>
             </div>
           )}
           <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
@@ -281,7 +296,11 @@ export default function HomePage() {
           />
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <RankTree rank={curDef.k} size={80} />
+            <TreeVariant
+              variantId={profile?.headlineTree ?? 'oak'}
+              stage={RANK_STAGE[profile?.rank ?? 'ต้นกล้า'] ?? 0}
+              size={120}
+            />
             <div style={{ flex: 1 }}>
               <div
                 style={{
