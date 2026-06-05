@@ -96,6 +96,9 @@ export interface StudentProfile {
   totalPoints: number; totalScans: number; rank: string
   streakDays: number; lastScanLocalDate: string
   status: string
+  coins?: number
+  ownedTrees?: string[]
+  headlineTree?: string
 }
 
 export function getMe() {
@@ -176,6 +179,39 @@ export interface SchoolGoal {
 
 export function getSchoolGoal() {
   return request<SchoolGoal>('/school/goal')
+}
+
+// ── Shop ──────────────────────────────────────────────────────
+export type ShopItemState = 'owned' | 'locked' | 'tooPoor' | 'buyable'
+export interface ShopItem {
+  id: string
+  name: string
+  priceCoins: number
+  gate: string | null
+  state: ShopItemState
+}
+export interface ShopResponse {
+  coins: number
+  headlineTree: string
+  items: ShopItem[]
+}
+
+export function getShop() {
+  return request<ShopResponse>('/shop')
+}
+
+export function shopBuy(itemId: string) {
+  return request<{ coins: number; ownedTrees: string[] }>('/shop/buy', {
+    method: 'POST',
+    body: JSON.stringify({ itemId }),
+  })
+}
+
+export function setHeadlineTree(itemId: string) {
+  return request<{ headlineTree: string }>('/shop/headline', {
+    method: 'POST',
+    body: JSON.stringify({ itemId }),
+  })
 }
 
 // ── Teacher ───────────────────────────────────────────────────
