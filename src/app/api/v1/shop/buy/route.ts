@@ -35,5 +35,6 @@ export async function POST(req: NextRequest) {
     coins: result.coins,
     ownedTrees: result.ownedTrees,
     ownedDecorations: result.ownedDecorations,
+    ownedTerrains: result.ownedTerrains,
   });
 }

@@ -22,6 +22,8 @@ export type Profile = {
   ownedDecorations: string[];
   displayedDecorations: string[];
   headlineTree: string;
+  ownedTerrains: string[];
+  activeTerrain: string;
   claimedGoalMilestones: number[];
   status: "pending_onboard" | "active" | "inactive";
   consent: boolean;
@@ -57,6 +59,8 @@ export function defaultPendingProfile(lineUserId: string, now: Date): Profile {
     ownedDecorations: [],
     displayedDecorations: [],
     headlineTree: "oak",
+    ownedTerrains: ["grass"],
+    activeTerrain: "grass",
     claimedGoalMilestones: [],
     status: "pending_onboard",
     consent: false,

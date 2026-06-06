@@ -1,6 +1,6 @@
 import type { AchievementId } from "./achievements";
 
-export type ItemKind = "tree" | "decoration";
+export type ItemKind = "tree" | "decoration" | "terrain";
 
 export type CatalogItem = {
   id: string;
@@ -35,7 +35,17 @@ export const DECORATIONS: CatalogItem[] = [
   { id: "statue",       kind: "decoration", name: "รูปปั้นทอง", priceCoins: 150, gate: "rank_forest" },
 ];
 
-export const ALL_ITEMS: CatalogItem[] = [...TREE_VARIANTS, ...DECORATIONS];
+// grass is the free default every student owns from onboarding.
+export const TERRAINS: CatalogItem[] = [
+  { id: "grass",  kind: "terrain", name: "สนามหญ้า",  priceCoins: 0 },
+  { id: "sand",   kind: "terrain", name: "ชายหาด",    priceCoins: 40 },
+  { id: "meadow", kind: "terrain", name: "ทุ่งดอกไม้", priceCoins: 60 },
+  { id: "autumn", kind: "terrain", name: "ใบไม้ร่วง",  priceCoins: 90 },
+  { id: "snow",   kind: "terrain", name: "ลานหิมะ",    priceCoins: 120, gate: "streak_7" },
+  { id: "cosmic", kind: "terrain", name: "ห้วงอวกาศ",  priceCoins: 200, gate: "rank_forest" },
+];
+
+export const ALL_ITEMS: CatalogItem[] = [...TREE_VARIANTS, ...DECORATIONS, ...TERRAINS];
 
 export function findItem(id: string): CatalogItem | undefined {
   return ALL_ITEMS.find((v) => v.id === id);

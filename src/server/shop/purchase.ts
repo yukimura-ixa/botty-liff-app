@@ -5,10 +5,12 @@ export type ItemState = "owned" | "locked" | "tooPoor" | "buyable";
 export type BuyDenyCode = "already_owned" | "locked" | "insufficient_coins";
 export type CanBuy = { ok: true } | { ok: false; code: BuyDenyCode };
 
-type Wallet = { coins: number; ownedTrees: string[]; ownedDecorations?: string[] };
+type Wallet = { coins: number; ownedTrees: string[]; ownedDecorations?: string[]; ownedTerrains?: string[] };
 
 function ownedArr(item: CatalogItem, w: Wallet): string[] {
-  return item.kind === "decoration" ? w.ownedDecorations ?? [] : w.ownedTrees;
+  if (item.kind === "decoration") return w.ownedDecorations ?? [];
+  if (item.kind === "terrain") return w.ownedTerrains ?? [];
+  return w.ownedTrees;
 }
 
 function gateOk(item: CatalogItem, unlocked: Set<AchievementId>): boolean {

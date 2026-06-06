@@ -18,6 +18,8 @@ export type DevAccount = {
   ownedTrees: string[];
   headlineTree: string;
   ownedDecorations: string[];
+  ownedTerrains?: string[];
+  activeTerrain?: string;
 };
 
 const STUDENT_NAMES = [
@@ -78,6 +80,8 @@ export const DEV_ACCOUNTS: DevAccount[] = [
     ownedTrees: ["oak"],
     headlineTree: "oak",
     ownedDecorations: [],
+    ownedTerrains: ["grass", "sand", "meadow"],
+    activeTerrain: "meadow",
   },
   ...buildStudents(),
 ];

@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     coins: prof.coins,
     ownedTrees: prof.ownedTrees,
     ownedDecorations: prof.ownedDecorations,
+    ownedTerrains: prof.ownedTerrains,
   };
 
   const items = ALL_ITEMS.map((v) => ({
@@ -43,5 +44,5 @@ export async function GET(req: NextRequest) {
     state: itemState(v, wallet, unlocked),
   }));
 
-  return jsonOk({ coins: prof.coins, headlineTree: prof.headlineTree, items });
+  return jsonOk({ coins: prof.coins, headlineTree: prof.headlineTree, activeTerrain: prof.activeTerrain, items });
 }

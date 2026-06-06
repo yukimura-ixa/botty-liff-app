@@ -5,12 +5,14 @@ import type { CatalogItem, TreeVariant } from "./catalog";
 const pine: TreeVariant = { id: "pine", kind: "tree", name: "ต้นสน", priceCoins: 40 };
 const willow: TreeVariant = { id: "willow", kind: "tree", name: "ต้นหลิว", priceCoins: 120, gate: "streak_7" };
 
-const profile = (over: Partial<{ coins: number; ownedTrees: string[]; ownedDecorations: string[] }> = {}) => ({
-  coins: 0, ownedTrees: ["oak"], ownedDecorations: [], ...over,
+const profile = (over: Partial<{ coins: number; ownedTrees: string[]; ownedDecorations: string[]; ownedTerrains: string[] }> = {}) => ({
+  coins: 0, ownedTrees: ["oak"], ownedDecorations: [], ownedTerrains: ["grass"], ...over,
 });
 
 const pond: CatalogItem = { id: "pond", kind: "decoration", name: "บ่อน้ำ", priceCoins: 90 };
 const statue: CatalogItem = { id: "statue", kind: "decoration", name: "รูปปั้นทอง", priceCoins: 150, gate: "rank_forest" };
+const sand: CatalogItem = { id: "sand", kind: "terrain", name: "ชายหาด", priceCoins: 40 };
+const cosmic: CatalogItem = { id: "cosmic", kind: "terrain", name: "ห้วงอวกาศ", priceCoins: 200, gate: "rank_forest" };
 
 describe("itemState", () => {
   it("owned when in ownedTrees", () => {
@@ -44,6 +46,23 @@ describe("canBuy", () => {
   });
   it("allows a valid purchase", () => {
     expect(canBuy(pine, profile({ coins: 40 }), new Set())).toEqual({ ok: true });
+  });
+});
+
+describe("terrain purchase", () => {
+  it("owned when in ownedTerrains", () => {
+    expect(itemState(sand, profile({ ownedTerrains: ["grass", "sand"] }), new Set())).toBe("owned");
+  });
+  it("buyable when affordable", () => {
+    expect(itemState(sand, profile({ coins: 40 }), new Set())).toBe("buyable");
+  });
+  it("locked behind its gate", () => {
+    expect(itemState(cosmic, profile({ coins: 999 }), new Set())).toBe("locked");
+    expect(itemState(cosmic, profile({ coins: 999 }), new Set(["rank_forest"]))).toBe("buyable");
+  });
+  it("canBuy rejects an already-owned terrain", () => {
+    expect(canBuy(sand, profile({ coins: 99, ownedTerrains: ["grass", "sand"] }), new Set()))
+      .toEqual({ ok: false, code: "already_owned" });
   });
 });
 

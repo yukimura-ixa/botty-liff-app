@@ -101,6 +101,8 @@ export interface StudentProfile {
   headlineTree?: string
   ownedDecorations?: string[]
   displayedDecorations?: string[]
+  ownedTerrains?: string[]
+  activeTerrain?: string
 }
 
 export function getMe() {
@@ -214,7 +216,7 @@ export function getSchoolGoal() {
 export type ShopItemState = 'owned' | 'locked' | 'tooPoor' | 'buyable'
 export interface ShopItem {
   id: string
-  kind: 'tree' | 'decoration'
+  kind: 'tree' | 'decoration' | 'terrain'
   name: string
   priceCoins: number
   gate: string | null
@@ -231,7 +233,7 @@ export function getShop() {
 }
 
 export function shopBuy(itemId: string) {
-  return request<{ coins: number; ownedTrees: string[]; ownedDecorations: string[] }>('/shop/buy', {
+  return request<{ coins: number; ownedTrees: string[]; ownedDecorations: string[]; ownedTerrains: string[] }>('/shop/buy', {
     method: 'POST',
     body: JSON.stringify({ itemId }),
   })
@@ -241,6 +243,13 @@ export function setHeadlineTree(itemId: string) {
   return request<{ headlineTree: string }>('/shop/headline', {
     method: 'POST',
     body: JSON.stringify({ itemId }),
+  })
+}
+
+export function setActiveTerrain(terrainId: string) {
+  return request<{ activeTerrain: string }>('/shop/terrain', {
+    method: 'POST',
+    body: JSON.stringify({ terrainId }),
   })
 }
 
