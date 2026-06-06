@@ -2,12 +2,15 @@ import { describe, it, expect } from "vitest";
 import { canBuy, itemState } from "./purchase";
 import type { TreeVariant } from "./catalog";
 
-const pine: TreeVariant = { id: "pine", name: "ต้นสน", priceCoins: 40 };
-const willow: TreeVariant = { id: "willow", name: "ต้นหลิว", priceCoins: 120, gate: "streak_7" };
+const pine: TreeVariant = { id: "pine", kind: "tree", name: "ต้นสน", priceCoins: 40 };
+const willow: TreeVariant = { id: "willow", kind: "tree", name: "ต้นหลิว", priceCoins: 120, gate: "streak_7" };
 
-const profile = (over: Partial<{ coins: number; ownedTrees: string[] }> = {}) => ({
-  coins: 0, ownedTrees: ["oak"], ...over,
+const profile = (over: Partial<{ coins: number; ownedTrees: string[]; ownedDecorations: string[] }> = {}) => ({
+  coins: 0, ownedTrees: ["oak"], ownedDecorations: [], ...over,
 });
+
+const pond: TreeVariant = { id: "pond", kind: "decoration", name: "บ่อน้ำ", priceCoins: 90 };
+const statue: TreeVariant = { id: "statue", kind: "decoration", name: "รูปปั้นทอง", priceCoins: 150, gate: "rank_forest" };
 
 describe("itemState", () => {
   it("owned when in ownedTrees", () => {
@@ -41,5 +44,24 @@ describe("canBuy", () => {
   });
   it("allows a valid purchase", () => {
     expect(canBuy(pine, profile({ coins: 40 }), new Set())).toEqual({ ok: true });
+  });
+});
+
+describe("decoration item-state", () => {
+  it("owned when in ownedDecorations (not ownedTrees)", () => {
+    expect(itemState(pond, profile({ ownedDecorations: ["pond"] }), new Set())).toBe("owned");
+  });
+  it("does not treat a decoration as owned just because a same-name tree is owned", () => {
+    expect(itemState(pond, profile({ coins: 999, ownedTrees: ["oak", "pond"] }), new Set())).toBe("buyable");
+  });
+  it("locked decoration when gate unmet", () => {
+    expect(itemState(statue, profile({ coins: 999 }), new Set())).toBe("locked");
+  });
+  it("buyable gated decoration once unlocked + affordable", () => {
+    expect(itemState(statue, profile({ coins: 150 }), new Set(["rank_forest"]))).toBe("buyable");
+  });
+  it("canBuy rejects an already-owned decoration", () => {
+    expect(canBuy(pond, profile({ coins: 999, ownedDecorations: ["pond"] }), new Set()))
+      .toEqual({ ok: false, code: "already_owned" });
   });
 });
