@@ -224,6 +224,8 @@ export interface ShopItem {
   priceCoins: number
   gate: string | null
   state: ShopItemState
+  seasonal?: boolean
+  seasonEndsAt?: string | null
 }
 export interface ShopResponse {
   coins: number
