@@ -49,6 +49,10 @@ function coerceProfile(raw: Record<string, unknown>): Profile {
   p.headlineTree = typeof raw.headlineTree === "string" && raw.headlineTree
     ? raw.headlineTree
     : "oak";
+  p.ownedTerrains = Array.isArray(raw.ownedTerrains) && raw.ownedTerrains.length
+    ? (raw.ownedTerrains as string[])
+    : ["grass"];
+  p.activeTerrain = typeof raw.activeTerrain === "string" ? raw.activeTerrain : "grass";
   p.claimedGoalMilestones = Array.isArray(raw.claimedGoalMilestones)
     ? (raw.claimedGoalMilestones as number[])
     : [];
