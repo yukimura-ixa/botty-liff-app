@@ -114,16 +114,25 @@ function IslandScenery({ stage, mine, myHeadlineTree }: { stage: number; mine: b
       {upright(tree(2, 42),   0,  30)}
     </>
   )
-  // Stage 3: the viewer's own island shows their headline variant (gold glow);
-  // other classes show a generic oak forest.
-  const myTree = (
-    <div style={{ filter: mine ? 'drop-shadow(0 0 4px #D9A441aa)' : 'none' }}>
-      <TreeVariant variantId={mine ? (myHeadlineTree ?? 'oak') : 'oak'} stage={3} size={56} />
+  // Stage 3: on the viewer's own island the lead tree is their headline variant,
+  // tagged "★ ของคุณ" with a gold glow + pulse so it clearly stands out.
+  const leadTree = mine ? (
+    <div style={{ position: 'relative' }}>
+      <div style={{
+        position: 'absolute', top: -17, left: '50%', transform: 'translateX(-50%)',
+        background: '#D9A441', color: 'white', fontSize: 9, fontWeight: 800,
+        padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+        animation: 'bpMyTag 1.8s ease-in-out infinite',
+      }}>★ ของคุณ</div>
+      <div style={{ filter: 'drop-shadow(0 0 7px #D9A441) drop-shadow(0 0 3px #D9A441cc)' }}>
+        <TreeVariant variantId={myHeadlineTree ?? 'oak'} stage={3} size={60} />
+      </div>
     </div>
-  )
+  ) : tree(3, 56)
   return (
     <>
-      {upright(myTree,        -55, -25)}
+      {upright(leadTree,      -55, -25)}
       {upright(tree(3, 52),    20, -40)}
       {upright(tree(2, 42),   -20,  20)}
       {upright(tree(2, 42),    60,  10)}
@@ -276,6 +285,10 @@ export function ClassForest({ classes, myClassKey, thresholds, myHeadlineTree }:
         @keyframes bpIslandIn {
           from { opacity: 0; transform: rotateX(58deg) rotateZ(-22deg) translateY(20px); }
           to   { opacity: 1; transform: rotateX(58deg) rotateZ(-22deg) translateY(0); }
+        }
+        @keyframes bpMyTag {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50%      { transform: translateX(-50%) scale(1.12); }
         }
       `}</style>
     </div>
