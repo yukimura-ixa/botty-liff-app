@@ -20,14 +20,13 @@ import { logScanAttempt, logScanEvent } from "@/server/scan/log";
 import { coinReward } from "@/server/shop/earn";
 import { createPending, hasOutstandingPending } from "@/server/scan/pending";
 import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
+import { cooldownMs, remainingBottles } from "@/server/scan/cooldown";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MIN_IMAGE_BYTES = 4 * 1024;
-const COOLDOWN_MS = 60_000;
-const DAILY_LIMIT = 20;
 
 type ConfirmMode = "off" | "log" | "enforce";
 function confirmMode(): ConfirmMode {
@@ -241,9 +240,13 @@ export async function POST(req: NextRequest) {
     return jsonOk(replayResult(scanId, prior, prof));
   }
 
+  const sameDay = prof.dailyScanDate === localDate;
+  const scansToday = sameDay ? (prof.dailyScans ?? 0) : 0;
+  const bottlesToday = sameDay ? (prof.dailyBottles ?? 0) : 0;
+
   if (prof.lastScanAt) {
     const last = prof.lastScanAt instanceof Date ? prof.lastScanAt : new Date(prof.lastScanAt as unknown as string);
-    const wait = COOLDOWN_MS - (Date.now() - last.getTime());
+    const wait = cooldownMs(scansToday) - (Date.now() - last.getTime());
     if (wait > 0) {
       await logScanAttempt({
         scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
@@ -255,13 +258,13 @@ export async function POST(req: NextRequest) {
       });
     }
   }
-  if (prof.dailyScanDate === localDate && (prof.dailyScans ?? 0) >= DAILY_LIMIT) {
+  if (remainingBottles(bottlesToday) <= 0) {
     await logScanAttempt({
       scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
       outcome: "denied_daily_cap",
       at: new Date(), localDate,
     });
-    return new Response(JSON.stringify({ error: "daily_limit", limit: DAILY_LIMIT }), {
+    return new Response(JSON.stringify({ error: "daily_limit", limit: 10 }), {
       status: 429, headers: { "Content-Type": "application/json" },
     });
   }
@@ -332,9 +335,16 @@ export async function POST(req: NextRequest) {
   const newStreak = computeStreak(prof.streakDays ?? 0, prof.lastScanLocalDate ?? "", localDate);
   const isFirstOfDay = prof.dailyScanDate !== localDate;
   const newDaily = isFirstOfDay ? 1 : (prof.dailyScans ?? 0) + 1;
-  const pt = calculatePoints(DEFAULT_POINTS_CONFIG, newStreak, isFirstOfDay, det.itemCount);
   const rawItems = Number.isFinite(det.itemCount) ? Math.floor(det.itemCount) : 1;
-  const pointedItems = Math.min(DEFAULT_POINTS_CONFIG.maxItemsPerScan, Math.max(1, rawItems));
+  // Award at most the bottles still allowed today (cap-to-remainder).
+  const allowedItems = Math.min(
+    DEFAULT_POINTS_CONFIG.maxItemsPerScan,
+    remainingBottles(bottlesToday),
+    Math.max(1, rawItems),
+  );
+  const pt = calculatePoints(DEFAULT_POINTS_CONFIG, newStreak, isFirstOfDay, allowedItems);
+  const pointedItems = allowedItems;
+  const newDailyBottles = bottlesToday + allowedItems;
   const newTotal = (prof.totalPoints ?? 0) + pt.total;
   const newRank = rankForPoints(newTotal);
   const coins = coinReward(newStreak, newDaily);
@@ -358,6 +368,7 @@ export async function POST(req: NextRequest) {
     scanId,
     newStreak,
     newDaily,
+    newDailyBottles,
     newRank,
     coinReward: coins,
   };
@@ -393,7 +404,7 @@ export async function POST(req: NextRequest) {
         detectedClass: det.class, itemCount: det.itemCount, confidence: det.confidence,
         basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
         coinReward: coins, isFirstOfDay, localDate, streakDays: newStreak,
-        newDailyCount: newDaily, newTotalPoints: newTotal, newRank,
+        newDailyCount: newDaily, dailyBottles: newDailyBottles, newTotalPoints: newTotal, newRank,
         prevRank: prof.rank ?? "ต้นกล้า", imagePath: imageUrl, imageHash: hash,
         phash, phashBucket: phashBkt, capturedAt,
       }));

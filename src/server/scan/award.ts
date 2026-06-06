@@ -8,6 +8,7 @@ type AwardFromScanInput = ScanDocInput & {
   scanId: string;
   newStreak: number;
   newDaily: number;
+  newDailyBottles: number;
   newRank: string;
   coinReward: number;
 };
@@ -40,6 +41,7 @@ export async function awardScan(i: AwardFromScanInput): Promise<{ awarded: boole
       lastScanLocalDate: i.localDate,
       lastScanAt: i.capturedAt,
       dailyScans: i.newDaily,
+      dailyBottles: i.newDailyBottles,
       dailyScanDate: i.localDate,
       rank: i.newRank,
       updatedAt: new Date(),
@@ -105,6 +107,7 @@ export async function awardFromPending(uid: string, p: PendingDoc, pendingId: st
       lastScanLocalDate: p.localDate,
       lastScanAt: p.capturedAt,
       dailyScans: p.newDailyCount,
+      dailyBottles: p.dailyBottles,
       dailyScanDate: p.localDate,
       rank: p.newRank,
       updatedAt: new Date(),

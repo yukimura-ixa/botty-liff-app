@@ -40,6 +40,7 @@ export type PendingDocInput = {
   localDate: string;
   streakDays: number;
   newDailyCount: number;
+  dailyBottles: number;
   newTotalPoints: number;
   newRank: string;
   prevRank: string;
