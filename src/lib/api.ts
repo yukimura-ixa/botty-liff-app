@@ -100,6 +100,7 @@ export interface StudentProfile {
   ownedTrees?: string[]
   headlineTree?: string
   ownedDecorations?: string[]
+  displayedDecorations?: string[]
 }
 
 export function getMe() {
@@ -213,6 +214,13 @@ export function setHeadlineTree(itemId: string) {
   return request<{ headlineTree: string }>('/shop/headline', {
     method: 'POST',
     body: JSON.stringify({ itemId }),
+  })
+}
+
+export function setGardenDisplay(decorations: string[]) {
+  return request<{ displayedDecorations: string[] }>('/garden/display', {
+    method: 'POST',
+    body: JSON.stringify({ decorations }),
   })
 }
 

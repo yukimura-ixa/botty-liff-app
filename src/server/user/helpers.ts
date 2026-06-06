@@ -19,6 +19,7 @@ export type Profile = {
   coinsLifetime: number;
   ownedTrees: string[];
   ownedDecorations: string[];
+  displayedDecorations: string[];
   headlineTree: string;
   claimedGoalMilestones: number[];
   status: "pending_onboard" | "active" | "inactive";
@@ -52,6 +53,7 @@ export function defaultPendingProfile(lineUserId: string, now: Date): Profile {
     coinsLifetime: 0,
     ownedTrees: ["oak"],
     ownedDecorations: [],
+    displayedDecorations: [],
     headlineTree: "oak",
     claimedGoalMilestones: [],
     status: "pending_onboard",

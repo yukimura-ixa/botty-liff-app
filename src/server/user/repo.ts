@@ -42,6 +42,9 @@ function coerceProfile(raw: Record<string, unknown>): Profile {
   p.ownedDecorations = Array.isArray(raw.ownedDecorations)
     ? (raw.ownedDecorations as string[])
     : [];
+  p.displayedDecorations = Array.isArray(raw.displayedDecorations)
+    ? (raw.displayedDecorations as string[])
+    : [];
   p.headlineTree = typeof raw.headlineTree === "string" && raw.headlineTree
     ? raw.headlineTree
     : "oak";

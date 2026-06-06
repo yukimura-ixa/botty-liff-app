@@ -1,16 +1,27 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { getMe, setHeadlineTree, type StudentProfile } from '@/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import { getMe, setHeadlineTree, setGardenDisplay, type StudentProfile } from '@/lib/api'
 import { Garden } from '@/components/botty/Garden'
+import { GARDEN_DECORATION_SLOTS } from '@/lib/garden'
 import { theme as t } from '@/lib/theme'
 import BottomNav from '@/components/shared/BottomNav'
 
 export default function GardenPage() {
   const [me, setMe] = useState<StudentProfile | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [decoBusy, setDecoBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => { getMe().then(setMe).catch(() => setErr('โหลดสวนไม่สำเร็จ')) }, [])
+
+  // Effective decorations on the plot: explicit selection if set, else auto-show
+  // the first owned up to the slot limit. Always a subset of owned, capped.
+  const placed = useMemo(() => {
+    const owned = me?.ownedDecorations ?? []
+    const disp = me?.displayedDecorations ?? []
+    const eff = disp.length ? disp.filter((id) => owned.includes(id)) : owned
+    return eff.slice(0, GARDEN_DECORATION_SLOTS)
+  }, [me])
 
   async function selectHeadline(id: string) {
     setErr(null)
@@ -27,6 +38,24 @@ export default function GardenPage() {
     }
   }
 
+  async function toggleDecoration(id: string) {
+    setErr(null)
+    const on = placed.includes(id)
+    if (!on && placed.length >= GARDEN_DECORATION_SLOTS) return // full
+    const next = on ? placed.filter((x) => x !== id) : [...placed, id]
+    const prev = me?.displayedDecorations
+    setDecoBusy(true)
+    setMe((m) => (m ? { ...m, displayedDecorations: next } : m)) // optimistic
+    try {
+      await setGardenDisplay(next)
+    } catch {
+      setMe((m) => (m ? { ...m, displayedDecorations: prev } : m)) // rollback
+      setErr('บันทึกการจัดสวนไม่สำเร็จ')
+    } finally {
+      setDecoBusy(false)
+    }
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: t.bone, paddingBottom: 110 }}>
       <header style={{ padding: '20px 18px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -40,13 +69,16 @@ export default function GardenPage() {
         <div style={{ padding: 14 }}>
           <Garden
             ownedTrees={me.ownedTrees ?? ['oak']}
-            ownedDecorations={me.ownedDecorations ?? []}
             headlineTree={me.headlineTree ?? 'oak'}
             busy={busy}
             onSelectHeadline={selectHeadline}
+            ownedDecorations={me.ownedDecorations ?? []}
+            placed={placed}
+            decoBusy={decoBusy}
+            onToggleDecoration={toggleDecoration}
           />
           <p style={{ color: t.muted, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
-            แตะต้นไม้เพื่อใช้เป็นต้นไม้ประจำตัว
+            แตะต้นไม้เพื่อใช้เป็นต้นไม้ประจำตัว · แตะของตกแต่งเพื่อจัดวาง
           </p>
         </div>
       )}
