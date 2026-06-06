@@ -13,6 +13,7 @@ const studentItems: Item[] = [
   { href: '/history',     label: 'ประวัติ',   icon: BottleIcon },
   { href: '/shop',        label: 'ร้านค้า',   icon: ShopIcon },
   { href: '/profile',     label: 'โปรไฟล์',  icon: UserIcon },
+  { href: '/garden',      label: 'สวน',      icon: GardenIcon },
 ];
 
 export default function BottomNav() {
@@ -104,6 +105,15 @@ function ShopIcon({ color, size }: { color: string; size: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path d="M4 7h16l-1 4a3 3 0 01-3 2.5H8A3 3 0 015 11L4 7z" stroke={color} strokeWidth="1.6" strokeLinejoin="round"/>
       <path d="M4 7l1-3h14l1 3M9 21v-5h6v5" stroke={color} strokeWidth="1.6" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function GardenIcon({ color, size }: { color: string; size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 3c2.5 2 4 4 4 6.5A4 4 0 018 9.5C8 7 9.5 5 12 3z" stroke={color} strokeWidth="1.6" strokeLinejoin="round"/>
+      <path d="M12 13v8M8 21h8" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
     </svg>
   );
 }
