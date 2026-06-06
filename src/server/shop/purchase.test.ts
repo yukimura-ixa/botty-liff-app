@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { canBuy, itemState } from "./purchase";
-import type { TreeVariant } from "./catalog";
+import type { CatalogItem, TreeVariant } from "./catalog";
 
 const pine: TreeVariant = { id: "pine", kind: "tree", name: "ต้นสน", priceCoins: 40 };
 const willow: TreeVariant = { id: "willow", kind: "tree", name: "ต้นหลิว", priceCoins: 120, gate: "streak_7" };
@@ -9,8 +9,8 @@ const profile = (over: Partial<{ coins: number; ownedTrees: string[]; ownedDecor
   coins: 0, ownedTrees: ["oak"], ownedDecorations: [], ...over,
 });
 
-const pond: TreeVariant = { id: "pond", kind: "decoration", name: "บ่อน้ำ", priceCoins: 90 };
-const statue: TreeVariant = { id: "statue", kind: "decoration", name: "รูปปั้นทอง", priceCoins: 150, gate: "rank_forest" };
+const pond: CatalogItem = { id: "pond", kind: "decoration", name: "บ่อน้ำ", priceCoins: 90 };
+const statue: CatalogItem = { id: "statue", kind: "decoration", name: "รูปปั้นทอง", priceCoins: 150, gate: "rank_forest" };
 
 describe("itemState", () => {
   it("owned when in ownedTrees", () => {

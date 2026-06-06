@@ -10,7 +10,6 @@ export type BuyResult =
   | { ok: true; coins: number; ownedTrees: string[]; ownedDecorations: string[] }
   | { ok: false; code: BuyDenyCode | "unknown_item" };
 
-/** Atomically spend coins and grant a tree. */
 /** Atomically spend coins and grant a catalog item (tree or decoration). */
 export async function buyItem(uid: string, itemId: string, goalPct: number): Promise<BuyResult> {
   const item = findItem(itemId);
