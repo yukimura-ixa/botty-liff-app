@@ -18,6 +18,7 @@ export default function ShopPage() {
   const [headline, setHeadline] = useState('oak')
   const [items, setItems] = useState<ShopItem[]>([])
   const [busy, setBusy] = useState<string | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
   async function load() {
@@ -36,7 +37,7 @@ export default function ShopPage() {
       if (e instanceof ApiError && e.code === 'insufficient_coins') setErr('เหรียญไม่พอ')
       else if (e instanceof ApiError && e.code === 'locked') setErr('ยังปลดล็อกไม่ได้')
       else setErr('ซื้อไม่สำเร็จ')
-    } finally { setBusy(null) }
+    } finally { setBusy(null); setConfirmId(null) }
   }
 
   async function choose(item: ShopItem) {
@@ -74,10 +75,20 @@ export default function ShopPage() {
                 {item.state === 'owned' && item.kind === 'decoration' && (
                   <span style={{ color: t.moss, fontSize: 13, fontWeight: 700 }}>✓ มีแล้ว</span>
                 )}
-                {item.state === 'buyable' && (
-                  <button disabled={busy === item.id} onClick={() => buy(item)} style={btn(t.moss)}>
+                {item.state === 'buyable' && confirmId !== item.id && (
+                  <button disabled={busy === item.id} onClick={() => { setErr(null); setConfirmId(item.id) }} style={btn(t.moss)}>
                     ซื้อ 🪙{item.priceCoins}
                   </button>
+                )}
+                {item.state === 'buyable' && confirmId === item.id && (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button disabled={busy === item.id} onClick={() => buy(item)} style={btn(t.moss)}>
+                      ยืนยัน 🪙{item.priceCoins}
+                    </button>
+                    <button disabled={busy === item.id} onClick={() => setConfirmId(null)} style={btn(t.muted)}>
+                      ยกเลิก
+                    </button>
+                  </div>
                 )}
                 {item.state === 'tooPoor' && (
                   <span style={{ color: t.muted, fontSize: 13 }}>🪙{item.priceCoins}</span>

@@ -6,14 +6,15 @@ import { theme as t } from '@/lib/theme';
 
 type Item = { href: string; label: string; icon: (p: { color: string; size: number }) => ReactElement; primary?: boolean };
 
+// scan is the primary action — kept dead-center (index 3 of 7).
 const studentItems: Item[] = [
   { href: '/home',        label: 'หน้าหลัก', icon: HomeIcon },
   { href: '/leaderboard', label: 'อันดับ',   icon: TrophyIcon },
-  { href: '/scan',        label: '',          icon: ScanIcon,  primary: true },
   { href: '/history',     label: 'ประวัติ',   icon: BottleIcon },
+  { href: '/scan',        label: '',          icon: ScanIcon,  primary: true },
   { href: '/shop',        label: 'ร้านค้า',   icon: ShopIcon },
-  { href: '/profile',     label: 'โปรไฟล์',  icon: UserIcon },
   { href: '/garden',      label: 'สวน',      icon: GardenIcon },
+  { href: '/profile',     label: 'โปรไฟล์',  icon: UserIcon },
 ];
 
 export default function BottomNav() {
