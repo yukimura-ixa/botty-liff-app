@@ -35,6 +35,7 @@ function coerceProfile(raw: Record<string, unknown>): Profile {
   if (updatedAt) p.updatedAt = updatedAt;
   if (lastScanAt) p.lastScanAt = lastScanAt; else delete p.lastScanAt;
   p.coins = typeof raw.coins === "number" ? raw.coins : 0;
+  p.dailyBottles = typeof raw.dailyBottles === "number" ? raw.dailyBottles : 0;
   p.coinsLifetime = typeof raw.coinsLifetime === "number" ? raw.coinsLifetime : 0;
   p.ownedTrees = Array.isArray(raw.ownedTrees) && raw.ownedTrees.length
     ? (raw.ownedTrees as string[])

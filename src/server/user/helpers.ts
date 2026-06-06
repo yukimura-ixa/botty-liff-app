@@ -14,6 +14,7 @@ export type Profile = {
   lastScanAt?: Date;
   lastScanLocalDate: string;
   dailyScans: number;
+  dailyBottles: number;
   dailyScanDate: string;
   coins: number;
   coinsLifetime: number;
@@ -48,6 +49,7 @@ export function defaultPendingProfile(lineUserId: string, now: Date): Profile {
     streakDays: 0,
     lastScanLocalDate: "",
     dailyScans: 0,
+    dailyBottles: 0,
     dailyScanDate: "",
     coins: 0,
     coinsLifetime: 0,
