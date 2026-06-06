@@ -52,6 +52,9 @@ next-env.d.ts
 *.db
 .beads-credential-key
 
+# Local-only destructive ops script (untracked on purpose)
+scripts/reset-firestore.ts
+
 .env*.local
 
 .env*.local
