@@ -94,7 +94,7 @@ export default function ApproverPage() {
         QR เจ้าหน้าที่
       </h1>
       <p style={{ fontSize: 13, color: t.muted, margin: "0 0 22px", lineHeight: 1.5 }}>
-        นักเรียนสแกน QR นี้เพื่อรับคะแนน · QR เปลี่ยนทุก 30 วินาที · เซสชัน 15 นาที
+        นักเรียนสแกน QR นี้เพื่อรับคะแนน · QR เปลี่ยนทุก 30 วินาที · เซสชัน 5 นาที
       </p>
 
       {err && (
@@ -114,7 +114,7 @@ export default function ApproverPage() {
             fontFamily: "inherit", opacity: busy ? 0.5 : 1,
           }}
         >
-          {busy ? "กำลังเปิด..." : "เปิดเซสชัน 15 นาที"}
+          {busy ? "กำลังเปิด..." : "เปิดเซสชัน 5 นาที"}
         </button>
       )}
 
@@ -128,7 +128,7 @@ export default function ApproverPage() {
               fontSize: 11, color: t.muted, letterSpacing: 0.8, fontWeight: 600,
               textTransform: "uppercase", marginBottom: 6,
             }}>
-              เหลือ {mins}:{String(secs).padStart(2, "0")} นาที · ช่อง {slotIdx + 1}/30
+              เหลือ {mins}:{String(secs).padStart(2, "0")} นาที · ช่อง {slotIdx + 1}/{session.tokens.length}
             </div>
             {qrDataUrl ? (
               <img

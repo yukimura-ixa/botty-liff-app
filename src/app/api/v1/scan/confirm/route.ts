@@ -51,6 +51,23 @@ export async function POST(req: NextRequest) {
   if (nowSec < claims.validFrom) return jsonError(400, "approver token not yet valid");
   if (nowSec > claims.validUntil) return jsonError(400, "approver token expired");
 
+  // Pre-validate the pending BEFORE claiming a slot, so a stale/expired/foreign
+  // pending doesn't burn an approver slot and lock the student out of the session.
+  // The authoritative transaction below re-checks under lock.
+  {
+    const snap = await fbFirestore().collection(PENDING_COL).doc(body.pendingId!).get();
+    if (!snap.exists) return jsonError(ERR_PENDING_NOT_FOUND.status, ERR_PENDING_NOT_FOUND.message);
+    const p = snap.data() as { uid?: string; status?: string; awarded?: boolean; expiresAt?: { toDate?: () => Date } | Date };
+    if (p.uid !== ctx.uid) return jsonError(ERR_PENDING_WRONG_USER.status, ERR_PENDING_WRONG_USER.message);
+    const alreadyConfirmed = p.status === PENDING_STATUS_CONFIRMED;
+    if (alreadyConfirmed && p.awarded === true) return jsonError(ERR_PENDING_ALREADY_CONFIRMED.status, ERR_PENDING_ALREADY_CONFIRMED.message);
+    if (!alreadyConfirmed && p.status !== PENDING_STATUS_AWAITING) return jsonError(ERR_PENDING_ALREADY_CONFIRMED.status, ERR_PENDING_ALREADY_CONFIRMED.message);
+    if (!alreadyConfirmed && p.expiresAt) {
+      const exp = (p.expiresAt as { toDate?: () => Date }).toDate?.() ?? (p.expiresAt as Date);
+      if (Date.now() > exp.getTime()) return jsonError(ERR_PENDING_EXPIRED.status, ERR_PENDING_EXPIRED.message);
+    }
+  }
+
   let staffUid: string;
   try {
     const r = await claimSlot(claims.sessionId, claims.slot, ctx.uid, body.pendingId);
