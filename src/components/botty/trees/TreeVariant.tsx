@@ -1,4 +1,5 @@
 'use client'
+import { useId } from 'react'
 import type { ReactNode } from 'react'
 
 // Palette per tree variant. stage 0-3 mirrors RANK_STAGE in RankTree.tsx.
@@ -27,6 +28,7 @@ export function TreeVariant({ variantId, stage, size = 80 }: TreeVariantProps) {
   const cx = 40
   const groundY = 70
   const topY = groundY - trunkH // top of trunk = canopy anchor
+  const gradId = useId()
 
   return (
     <div style={{ display: 'inline-flex', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -36,18 +38,18 @@ export function TreeVariant({ variantId, stage, size = 80 }: TreeVariantProps) {
         {/* trunk */}
         <rect x={cx - 3} y={groundY - trunkH} width={6} height={trunkH} rx={2} fill={p.trunk} />
         {/* variant-specific canopy */}
-        {canopy(id, p, cx, topY, canopyR)}
+        {canopy(id, p, cx, topY, canopyR, gradId)}
       </svg>
     </div>
   )
 }
 
-function canopy(id: string, p: Palette, cx: number, topY: number, r: number): ReactNode {
+function canopy(id: string, p: Palette, cx: number, topY: number, r: number, gradId: string): ReactNode {
   switch (id) {
     case 'pine':   return pineCanopy(p, cx, topY, r)
     case 'sakura': return sakuraCanopy(p, cx, topY, r)
     case 'willow': return willowCanopy(p, cx, topY, r)
-    case 'aurora': return auroraCanopy(p, cx, topY, r)
+    case 'aurora': return auroraCanopy(p, cx, topY, r, gradId)
     default:       return oakCanopy(p, cx, topY, r)
   }
 }
@@ -123,8 +125,8 @@ function willowCanopy(p: Palette, cx: number, topY: number, r: number): ReactNod
   )
 }
 
-function auroraCanopy(p: Palette, cx: number, topY: number, r: number): ReactNode {
-  const gid = `aurora-grad-${Math.round(r)}`
+function auroraCanopy(p: Palette, cx: number, topY: number, r: number, gradId: string): ReactNode {
+  const gid = `aurora-grad-${gradId}`
   const top = topY - r * 1.3
   const bot = topY + r * 0.4
   const hw = r * 0.95
