@@ -156,12 +156,12 @@ export function confirmScan(pendingId: string, approverToken: string) {
   })
 }
 
-export type MintedSlot = { slot: number; token: string; validFrom: number; validUntil: number }
+export type ApproverSlotToken = { slot: number; token: string; validFrom: number; validUntil: number }
 export type ApproverSessionResponse = {
   sessionId: string
   startedAt: string
   expiresAt: string
-  tokens: MintedSlot[]
+  tokens: ApproverSlotToken[]
 }
 // Staff opens an approver session; returns the minted rotating slot tokens.
 export function openApproverSession() {
