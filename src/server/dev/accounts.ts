@@ -17,6 +17,7 @@ export type DevAccount = {
   coins: number;
   ownedTrees: string[];
   headlineTree: string;
+  ownedDecorations: string[];
 };
 
 const STUDENT_NAMES = [
@@ -30,6 +31,8 @@ const STUDENT_NAMES = [
 // 4 classes, 5 students each (20 total).
 const CLASSES: Array<[number, number]> = [[4, 1], [4, 2], [5, 1], [6, 1]];
 const ALL_TREES = ["oak", "pine", "sakura", "willow", "aurora"];
+// Non-gated decorations (statue is gated behind rank 🌳, granted separately).
+const DECORATIONS = ["rock", "flower_patch", "bush", "pond", "log_bench"];
 
 function buildStudents(): DevAccount[] {
   return STUDENT_NAMES.map((fullName, i) => {
@@ -40,6 +43,10 @@ function buildStudents(): DevAccount[] {
     if (totalPoints >= 1600) owned.push("pine");
     if (i % 3 === 0) owned.push("sakura");
     if (totalPoints >= 2500) owned.push("aurora");
+    // Vary decoration counts 0..4 (+ gated statue for forest-rank students) so
+    // some gardens are empty, some exceed the 4-slot limit to test curation.
+    const decos = DECORATIONS.slice(0, i % 5);
+    if (totalPoints >= 1600) decos.push("statue");
     return {
       uid: `dev:s${String(i + 1).padStart(2, "0")}`,
       role: "student" as const,
@@ -52,6 +59,7 @@ function buildStudents(): DevAccount[] {
       coins: 5000 + (i * 137) % 1500, // generous: buy any tree while testing
       ownedTrees: owned,
       headlineTree: owned[owned.length - 1], // show off their best tree
+      ownedDecorations: decos,
     };
   });
 }
@@ -69,6 +77,7 @@ export const DEV_ACCOUNTS: DevAccount[] = [
     coins: 5000,
     ownedTrees: ["oak"],
     headlineTree: "oak",
+    ownedDecorations: [],
   },
   ...buildStudents(),
 ];

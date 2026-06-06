@@ -112,6 +112,8 @@ async function main() {
       coinsLifetime: a.coins,
       ownedTrees: a.ownedTrees,
       headlineTree: a.headlineTree,
+      ownedDecorations: a.ownedDecorations,
+      displayedDecorations: [],
       claimedGoalMilestones: [],
       status: "active",
       consent: true,

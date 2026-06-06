@@ -11,59 +11,8 @@ export function classStage(pts: number, thresholds: [number, number, number]): n
 
 const STAGE_NAME = ['ผืนดินเปล่า', 'หญ้าอ่อน', 'ดงต้นไม้เล็ก', 'ป่าอุดมสมบูรณ์']
 
-// ─── SVG atoms (ported from forest3d.jsx) ─────────────────────────
-
-function WiltSapling() {
-  return (
-    <svg width="28" height="32" viewBox="0 0 28 32">
-      <path d="M14 30 v-12" stroke="#7B5230" strokeWidth="1.6" strokeLinecap="round"/>
-      <path d="M14 22 q-5 2 -8 6" fill="#A88B6A" stroke="#1F6E4A" strokeWidth="0.5"/>
-      <path d="M14 20 q5 2 8 6"  fill="#A88B6A" stroke="#1F6E4A" strokeWidth="0.5"/>
-    </svg>
-  )
-}
-
-function Sapling() {
-  return (
-    <svg width="28" height="32" viewBox="0 0 28 32">
-      <path d="M14 30 v-12" stroke="#7B5230" strokeWidth="1.6" strokeLinecap="round"/>
-      <path d="M14 22 q-6 -3 -9 -1 q3 5 9 3"  fill="#3FA66B" stroke="#1F6E4A" strokeWidth="0.5"/>
-      <path d="M14 20 q6 -3 9 -1 q-3 5 -9 3" fill="#3FA66B" stroke="#1F6E4A" strokeWidth="0.5"/>
-    </svg>
-  )
-}
-
-function MidTree() {
-  return (
-    <svg width="36" height="50" viewBox="0 0 36 50">
-      <rect x="16" y="30" width="4" height="20" rx="1.5" fill="#6B4623"/>
-      <circle cx="18" cy="22" r="14" fill="#1F6E4A"/>
-      <circle cx="11" cy="24" r="9"  fill="#3FA66B"/>
-      <circle cx="25" cy="24" r="9"  fill="#3FA66B"/>
-      <circle cx="18" cy="14" r="8"  fill="#3FA66B"/>
-    </svg>
-  )
-}
-
-function BigTree({ mine = false }: { mine?: boolean }) {
-  return (
-    <svg width="52" height="72" viewBox="0 0 52 72"
-      style={{ filter: mine ? 'drop-shadow(0 0 4px #D9A441aa)' : 'none' }}>
-      <rect x="23" y="40" width="6" height="32" rx="2" fill="#5C3A1F"/>
-      <circle cx="26" cy="28" r="20" fill="#0F3D2E"/>
-      <circle cx="14" cy="34" r="13" fill="#1F6E4A"/>
-      <circle cx="38" cy="34" r="13" fill="#1F6E4A"/>
-      <circle cx="26" cy="14" r="11" fill="#3FA66B"/>
-      {mine && (
-        <>
-          <circle cx="14" cy="30" r="2" fill="#D9A441"/>
-          <circle cx="38" cy="28" r="2" fill="#D9A441"/>
-          <circle cx="26" cy="10" r="2" fill="#D9A441"/>
-        </>
-      )}
-    </svg>
-  )
-}
+// Trees in the class forest reuse the shared TreeVariant renderer (see
+// IslandScenery) so they look identical to /garden and /shop.
 
 // ─── Mini island chip ──────────────────────────────────────────────
 
@@ -153,24 +102,31 @@ function IslandScenery({ stage, mine, myHeadlineTree }: { stage: number; mine: b
     )
   }
 
-  if (stage === 0) return <>{upright(<WiltSapling/>, 0, -10)}</>
-  if (stage === 1) return <>{upright(<Sapling/>, -30, -10)}{upright(<Sapling/>, 40, 10)}</>
+  // Generic forest tree — same renderer as /garden, default oak variant.
+  const tree = (s: number, size: number) => <TreeVariant variantId="oak" stage={s} size={size} />
+
+  if (stage === 0) return <>{upright(tree(0, 32), 0, -10)}</>
+  if (stage === 1) return <>{upright(tree(1, 34), -30, -10)}{upright(tree(1, 34), 40, 10)}</>
   if (stage === 2) return (
     <>
-      {upright(<MidTree/>, -50, -20)}
-      {upright(<MidTree/>,  40, -30)}
-      {upright(<MidTree/>,   0,  30)}
+      {upright(tree(2, 42), -50, -20)}
+      {upright(tree(2, 42),  40, -30)}
+      {upright(tree(2, 42),   0,  30)}
     </>
   )
-  const myTree = mine
-    ? <TreeVariant variantId={myHeadlineTree ?? 'oak'} stage={3} size={52} />
-    : <BigTree mine={false}/>
+  // Stage 3: the viewer's own island shows their headline variant (gold glow);
+  // other classes show a generic oak forest.
+  const myTree = (
+    <div style={{ filter: mine ? 'drop-shadow(0 0 4px #D9A441aa)' : 'none' }}>
+      <TreeVariant variantId={mine ? (myHeadlineTree ?? 'oak') : 'oak'} stage={3} size={56} />
+    </div>
+  )
   return (
     <>
-      {upright(myTree,          -55, -25)}
-      {upright(<BigTree/>,       20, -40)}
-      {upright(<MidTree/>,      -20,  20)}
-      {upright(<MidTree/>,       60,  10)}
+      {upright(myTree,        -55, -25)}
+      {upright(tree(3, 52),    20, -40)}
+      {upright(tree(2, 42),   -20,  20)}
+      {upright(tree(2, 42),    60,  10)}
     </>
   )
 }
