@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { RANK_STAGE } from "@/components/botty/RankTree";
 import { TreeVariant } from "@/components/botty/trees/TreeVariant";
+import { Terrain } from "@/components/botty/terrains/Terrain";
 
 export default function HomePage() {
   const router = useRouter();
@@ -296,11 +297,16 @@ export default function HomePage() {
           />
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <TreeVariant
-              variantId={profile?.headlineTree ?? 'oak'}
-              stage={RANK_STAGE[profile?.rank ?? 'ต้นกล้า'] ?? 0}
-              size={120}
-            />
+            <div style={{ position: "relative", width: 120, height: 120, borderRadius: 16, overflow: "hidden", flexShrink: 0 }}>
+              <Terrain id={profile?.activeTerrain ?? 'grass'} style={{ borderRadius: 16 }} />
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <TreeVariant
+                  variantId={profile?.headlineTree ?? 'oak'}
+                  stage={RANK_STAGE[profile?.rank ?? 'ต้นกล้า'] ?? 0}
+                  size={120}
+                />
+              </div>
+            </div>
             <div style={{ flex: 1 }}>
               <div
                 style={{
