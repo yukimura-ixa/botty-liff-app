@@ -4,10 +4,10 @@ import { theme as t } from "@/lib/theme";
 import {
   adminListUsers, adminListRoleChanges, adminListUserEdits,
   adminListAdjustments, adminListAdjustRequests, adminDecideAdjustRequest,
-  adminUpdateUser, adminDeleteUser,
+  adminUpdateUser, adminDeleteUser, adminChangeRole,
   type UserRow, type RoleChange, type UserEdit,
   type Adjustment, type AdjustRequest,
-  type UserPatch,
+  type UserPatch, type AssignableRole,
 } from "@/lib/api";
 
 const KANIT = "var(--font-kanit), system-ui";
@@ -25,6 +25,7 @@ type Tab = "users" | "adjust" | "audit";
 function roleChip(role: string) {
   const map: Record<string, { bg: string; fg: string }> = {
     admin: { bg: t.gold, fg: t.ink },
+    council: { bg: `${t.leaf}cc`, fg: t.forest },
     student: { bg: `${t.mint}cc`, fg: t.forest },
   };
   const c = map[role] ?? map.student;
@@ -58,6 +59,7 @@ export default function AdminPage() {
     status: 'active' | 'inactive';
   }>({ fullName: '', classGrade: '0', classRoom: '0', totalPoints: '0', status: 'active' });
   const [editBusy, setEditBusy] = useState(false);
+  const [roleBusy, setRoleBusy] = useState('');
   const [editErr, setEditErr] = useState('');
   const [editToast, setEditToast] = useState('');
   const [confirmEditOpen, setConfirmEditOpen] = useState(false);
@@ -250,6 +252,22 @@ export default function AdminPage() {
   }
 
 
+  async function changeUserRole(u: UserRow, role: AssignableRole) {
+    setRoleBusy(u.uid);
+    setEditErr('');
+    try {
+      await adminChangeRole(u.uid, role, `admin set ${role}`);
+      const list = await adminListUsers({ role: roleFilter, q });
+      setUsers(list.users ?? []);
+      setEditToast(`เปลี่ยนบทบาทเป็น ${role} แล้ว`);
+      closeEdit();
+    } catch (e) {
+      setEditErr(e instanceof Error ? e.message : 'failed');
+    } finally {
+      setRoleBusy('');
+    }
+  }
+
   async function submitDelete(u: UserRow) {
     setEditBusy(true);
     setEditErr('');
@@ -402,6 +420,7 @@ export default function AdminPage() {
               >
                 <option value="">ALL</option>
                 <option value="student">STUDENT</option>
+                <option value="council">COUNCIL</option>
                 <option value="admin">ADMIN</option>
               </select>
             </div>
@@ -522,6 +541,21 @@ export default function AdminPage() {
                             />
                           </label>
                         </div>
+                        {u.role !== 'admin' && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                            <span style={{ fontSize: 10, color: `${t.mint}aa`, fontFamily: MONO, letterSpacing: 0.4 }}>
+                              บทบาท: {u.role}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => changeUserRole(u, u.role === 'council' ? 'student' : 'council')}
+                              disabled={roleBusy === u.uid}
+                              style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, background: 'transparent', border: `1px solid ${t.leaf}`, color: t.leaf, cursor: 'pointer', fontFamily: 'inherit', opacity: roleBusy === u.uid ? 0.7 : 1 }}
+                            >
+                              {roleBusy === u.uid ? 'กำลังเปลี่ยน...' : u.role === 'council' ? '→ นักเรียน' : '→ สภานักเรียน'}
+                            </button>
+                          </div>
+                        )}
                         {editErr && (
                           <div style={{ color: t.coral, fontSize: 11, marginTop: 8 }}>{editErr}</div>
                         )}

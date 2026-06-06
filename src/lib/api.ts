@@ -325,8 +325,8 @@ export function updateForestStages(thresholds: [number, number, number]) {
 }
 
 // ── Admin ─────────────────────────────────────────────────────
-export type UserRole = 'student' | 'admin';
-export type AssignableRole = 'student';
+export type UserRole = 'student' | 'council' | 'admin';
+export type AssignableRole = 'student' | 'council';
 
 export type UserRow = {
   uid: string;
