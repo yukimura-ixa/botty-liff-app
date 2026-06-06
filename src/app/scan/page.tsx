@@ -287,12 +287,10 @@ export default function ScanPage() {
               }}
             >
               {[
-                ["ขวด PET พื้นฐาน", `+${result.basePoints}`],
-                ["โบนัสสตรีค", `+${result.streakBonus}`],
+                ["ขวด PET", `+${result.basePoints}`],
               ].map(([k, v], i) => (
                 <div key={i} style={{
                   display: "flex", justifyContent: "space-between", padding: "4px 0",
-                  borderBottom: i === 0 ? "1px dashed rgba(255,255,255,0.2)" : "none",
                 }}>
                   <span style={{ opacity: 0.85 }}>{k}</span>
                   <span style={{ fontWeight: 700, color: t.gold }}>{v}</span>
