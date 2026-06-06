@@ -49,7 +49,7 @@ function buildStudents(): DevAccount[] {
       classRoom,
       totalPoints,
       streakDays: i % 12, // some students reach the 7-day streak gate
-      coins: 40 + (i * 23) % 260,
+      coins: 5000 + (i * 137) % 1500, // generous: buy any tree while testing
       ownedTrees: owned,
       headlineTree: owned[owned.length - 1], // show off their best tree
     };
@@ -66,7 +66,7 @@ export const DEV_ACCOUNTS: DevAccount[] = [
     classRoom: 0,
     totalPoints: 0,
     streakDays: 0,
-    coins: 0,
+    coins: 5000,
     ownedTrees: ["oak"],
     headlineTree: "oak",
   },
