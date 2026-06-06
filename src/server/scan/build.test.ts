@@ -47,8 +47,10 @@ describe("buildPendingDoc", () => {
       isFirstOfDay: true, localDate: "2026-06-06", streakDays: 1, newDailyCount: 1,
       newTotalPoints: 2, newRank: "ต้นกล้า", prevRank: "ต้นกล้า",
       imagePath: "https://x/y.jpg", imageHash: "h", capturedAt, coinReward: 5,
+      dailyBottles: 4,
     });
     expect(doc.coinReward).toBe(5);
+    expect(doc.dailyBottles).toBe(4);
     expect(doc.expiresAt.getTime() - capturedAt.getTime()).toBe(PENDING_TTL_MS);
     expect(PENDING_TTL_MS).toBe(300_000);
   });
@@ -59,7 +61,7 @@ describe("buildPendingDoc", () => {
       itemCount: 1, confidence: 0.9, basePoints: 1, streakBonus: 0, totalPoints: 1,
       isFirstOfDay: true, localDate: "2026-06-06", streakDays: 1, newDailyCount: 1,
       newTotalPoints: 1, newRank: "ต้นกล้า", prevRank: "ต้นกล้า",
-      imagePath: "u", imageHash: "h", capturedAt: new Date(), coinReward: 0,
+      imagePath: "u", imageHash: "h", capturedAt: new Date(), coinReward: 0, dailyBottles: 0,
     });
     expect("phash" in doc).toBe(false);
     expect(doc.status).toBe("awaiting_bin");
