@@ -7,7 +7,7 @@ import { unlockedAchievements } from "./achievements";
 import { unclaimedMilestones, milestonePayout } from "./goal-milestones";
 
 export type BuyResult =
-  | { ok: true; coins: number; ownedTrees: string[]; ownedDecorations: string[] }
+  | { ok: true; coins: number; ownedTrees: string[]; ownedDecorations: string[]; ownedTerrains: string[] }
   | { ok: false; code: BuyDenyCode | "unknown_item" };
 
 /** Atomically spend coins and grant a catalog item (tree or decoration). */
@@ -26,6 +26,9 @@ export async function buyItem(uid: string, itemId: string, goalPct: number): Pro
         ? (d.ownedTrees as string[])
         : ["oak"],
       ownedDecorations: Array.isArray(d.ownedDecorations) ? (d.ownedDecorations as string[]) : [],
+      ownedTerrains: Array.isArray(d.ownedTerrains) && d.ownedTerrains.length
+        ? (d.ownedTerrains as string[])
+        : ["grass"],
     };
     const unlocked = unlockedAchievements(
       { totalPoints: (d.totalPoints as number) ?? 0, streakDays: (d.streakDays as number) ?? 0 },
@@ -34,7 +37,9 @@ export async function buyItem(uid: string, itemId: string, goalPct: number): Pro
     const verdict = canBuy(item, wallet, unlocked);
     if (!verdict.ok) return { ok: false, code: verdict.code };
     const coins = wallet.coins - item.priceCoins;
-    const field = item.kind === "decoration" ? "ownedDecorations" : "ownedTrees";
+    const field = item.kind === "decoration" ? "ownedDecorations"
+      : item.kind === "terrain" ? "ownedTerrains"
+      : "ownedTrees";
     tx.update(ref, {
       coins,
       [field]: FieldValue.arrayUnion(item.id),
@@ -46,6 +51,8 @@ export async function buyItem(uid: string, itemId: string, goalPct: number): Pro
       ownedTrees: item.kind === "tree" ? [...wallet.ownedTrees, item.id] : wallet.ownedTrees,
       ownedDecorations:
         item.kind === "decoration" ? [...wallet.ownedDecorations, item.id] : wallet.ownedDecorations,
+      ownedTerrains:
+        item.kind === "terrain" ? [...wallet.ownedTerrains, item.id] : wallet.ownedTerrains,
     };
   });
 
@@ -65,6 +72,25 @@ export async function setHeadline(uid: string, itemId: string): Promise<Headline
     const owned = Array.isArray(d.ownedTrees) ? (d.ownedTrees as string[]) : ["oak"];
     if (!owned.includes(itemId)) return { ok: false, code: "not_owned" };
     tx.update(ref, { headlineTree: itemId, updatedAt: new Date() });
+    return { ok: true };
+  });
+  if (result.ok) bust(`user:${uid}`);
+  return result;
+}
+
+export type TerrainResult = { ok: true } | { ok: false; code: "not_owned" };
+
+/** Set the active terrain; must already be owned. */
+export async function setActiveTerrain(uid: string, terrainId: string): Promise<TerrainResult> {
+  const fs = fbFirestore();
+  const ref = fs.collection("users").doc(uid);
+  const result = await fs.runTransaction<TerrainResult>(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.data() ?? {};
+    const owned = Array.isArray(d.ownedTerrains) && d.ownedTerrains.length
+      ? (d.ownedTerrains as string[]) : ["grass"];
+    if (!owned.includes(terrainId)) return { ok: false, code: "not_owned" };
+    tx.update(ref, { activeTerrain: terrainId, updatedAt: new Date() });
     return { ok: true };
   });
   if (result.ok) bust(`user:${uid}`);
