@@ -1,5 +1,14 @@
 'use client'
+import Image from 'next/image'
 import type { ReactNode } from 'react'
+
+// Festival decorations ship as JPG art (public/seasonal/*.jpg) instead of inline SVG.
+const SEASONAL_DECORATION_ASSETS: Record<string, string> = {
+  teachers_day: '/seasonal/teachers_day.jpg',
+  loy_krathong: '/seasonal/loy_krathong.jpg',
+  mothers_day: '/seasonal/mothers_day.jpg',
+  fathers_day: '/seasonal/fathers_day.jpg',
+}
 
 export interface DecorationProps {
   id: string
@@ -7,6 +16,18 @@ export interface DecorationProps {
 }
 
 export function Decoration({ id, size = 48 }: DecorationProps) {
+  const asset = SEASONAL_DECORATION_ASSETS[id]
+  if (asset) {
+    return (
+      <Image
+        src={asset}
+        alt=""
+        width={size}
+        height={size}
+        style={{ objectFit: 'contain', display: 'inline-block' }}
+      />
+    )
+  }
   const scale = size / 48
   return (
     <div style={{ display: 'inline-flex', alignItems: 'flex-end', justifyContent: 'center' }}>
