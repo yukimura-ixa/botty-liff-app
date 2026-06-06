@@ -1,28 +1,43 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
-import { getMe, setHeadlineTree, setGardenDisplay, setActiveTerrain, type StudentProfile } from '@/lib/api'
+import { useEffect, useRef, useState } from 'react'
+import { getMe, setHeadlineTree, setGardenLayout, setActiveTerrain, type StudentProfile } from '@/lib/api'
 import { Garden } from '@/components/botty/Garden'
-import { GARDEN_DECORATION_SLOTS } from '@/lib/garden'
+import { GARDEN_DECORATION_SLOTS, defaultSlot, type PlacedDecoration } from '@/lib/garden'
 import { theme as t } from '@/lib/theme'
 import BottomNav from '@/components/shared/BottomNav'
 
 export default function GardenPage() {
   const [me, setMe] = useState<StudentProfile | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [decoBusy, setDecoBusy] = useState(false)
   const [terrainBusy, setTerrainBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [layout, setLayout] = useState<PlacedDecoration[]>([])
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { getMe().then(setMe).catch(() => setErr('โหลดสวนไม่สำเร็จ')) }, [])
 
-  // Effective decorations on the plot: explicit selection if set, else auto-show
-  // the first owned up to the slot limit. Always a subset of owned, capped.
-  const placed = useMemo(() => {
-    const owned = me?.ownedDecorations ?? []
-    const disp = me?.displayedDecorations ?? []
-    const eff = disp.length ? disp.filter((id) => owned.includes(id)) : owned
-    return eff.slice(0, GARDEN_DECORATION_SLOTS)
-  }, [me])
+  // Sync local layout from the profile once loaded (or when profile refreshes after onboard).
+  useEffect(() => {
+    if (me?.decorationLayout) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way sync from server; drag updates go the other way via persistLayout
+      setLayout(me.decorationLayout)
+    }
+  }, [me?.decorationLayout])
+
+  function persistLayout(next: PlacedDecoration[]) {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      setGardenLayout(next).catch(() => setErr('บันทึกการจัดสวนไม่สำเร็จ'))
+    }, 350)
+  }
+
+  function moveDecoration(id: string, x: number, y: number) {
+    setLayout((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, x, y } : p))
+      persistLayout(next)
+      return next
+    })
+  }
 
   async function selectHeadline(id: string) {
     setErr(null)
@@ -39,22 +54,17 @@ export default function GardenPage() {
     }
   }
 
-  async function toggleDecoration(id: string) {
+  function toggleDecoration(id: string) {
     setErr(null)
-    const on = placed.includes(id)
-    if (!on && placed.length >= GARDEN_DECORATION_SLOTS) return // full
-    const next = on ? placed.filter((x) => x !== id) : [...placed, id]
-    const prev = me?.displayedDecorations
-    setDecoBusy(true)
-    setMe((m) => (m ? { ...m, displayedDecorations: next } : m)) // optimistic
-    try {
-      await setGardenDisplay(next)
-    } catch {
-      setMe((m) => (m ? { ...m, displayedDecorations: prev } : m)) // rollback
-      setErr('บันทึกการจัดสวนไม่สำเร็จ')
-    } finally {
-      setDecoBusy(false)
-    }
+    setLayout((prev) => {
+      const on = prev.some((p) => p.id === id)
+      if (!on && prev.length >= GARDEN_DECORATION_SLOTS) return prev // full
+      const next = on
+        ? prev.filter((p) => p.id !== id)
+        : [...prev, { id, ...defaultSlot(prev.length) }]
+      persistLayout(next)
+      return next
+    })
   }
 
   async function selectTerrain(id: string) {
@@ -89,16 +99,16 @@ export default function GardenPage() {
             busy={busy}
             onSelectHeadline={selectHeadline}
             ownedDecorations={me.ownedDecorations ?? []}
-            placed={placed}
-            decoBusy={decoBusy}
+            layout={layout}
             onToggleDecoration={toggleDecoration}
+            onMoveDecoration={moveDecoration}
             ownedTerrains={me.ownedTerrains ?? ['grass']}
             activeTerrain={me.activeTerrain ?? 'grass'}
             terrainBusy={terrainBusy}
             onSelectTerrain={selectTerrain}
           />
           <p style={{ color: t.muted, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
-            แตะต้นไม้เพื่อใช้เป็นต้นไม้ประจำตัว · แตะของตกแต่งเพื่อจัดวาง
+            แตะต้นไม้เพื่อใช้เป็นต้นไม้ประจำตัว · ลากของตกแต่งเพื่อจัดวาง
           </p>
         </div>
       )}
