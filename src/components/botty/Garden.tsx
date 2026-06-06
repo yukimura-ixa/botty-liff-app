@@ -1,9 +1,9 @@
 'use client'
-import type { CSSProperties } from 'react'
+import { useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { TreeVariant } from './trees/TreeVariant'
 import { Decoration } from './decorations/Decoration'
 import { Terrain } from './terrains/Terrain'
-import { GARDEN_DECORATION_SLOTS } from '@/lib/garden'
+import { GARDEN_DECORATION_SLOTS, clientToFraction, type PlacedDecoration } from '@/lib/garden'
 import { theme as t } from '@/lib/theme'
 
 export interface GardenProps {
@@ -11,11 +11,12 @@ export interface GardenProps {
   headlineTree: string
   busy?: string | null
   onSelectHeadline: (id: string) => void
-  // Decorations
+  // Decorations (positioned)
   ownedDecorations: string[]
-  placed: string[]                       // effective list shown on the plot (<= slots)
+  layout: PlacedDecoration[]
   decoBusy?: boolean
   onToggleDecoration: (id: string) => void
+  onMoveDecoration: (id: string, x: number, y: number) => void
   // Terrain
   ownedTerrains: string[]
   activeTerrain: string
@@ -25,16 +26,38 @@ export interface GardenProps {
 
 export function Garden({
   ownedTrees, headlineTree, busy, onSelectHeadline,
-  ownedDecorations, placed, decoBusy, onToggleDecoration,
+  ownedDecorations, layout, decoBusy, onToggleDecoration, onMoveDecoration,
   ownedTerrains, activeTerrain, terrainBusy, onSelectTerrain,
 }: GardenProps) {
-  const full = placed.length >= GARDEN_DECORATION_SLOTS
+  const surfaceRef = useRef<HTMLDivElement>(null)
+  const dragId = useRef<string | null>(null)
+  const placedIds = new Set(layout.map((p) => p.id))
+  const full = layout.length >= GARDEN_DECORATION_SLOTS
+
+  function onPointerDown(e: ReactPointerEvent, id: string) {
+    dragId.current = id
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  function onPointerMove(e: ReactPointerEvent, id: string) {
+    if (dragId.current !== id || !surfaceRef.current) return
+    const r = surfaceRef.current.getBoundingClientRect()
+    const { x, y } = clientToFraction(e.clientX, e.clientY, r)
+    onMoveDecoration(id, x, y) // optimistic; page persists on release via committed state
+  }
+  function onPointerUp(e: ReactPointerEvent, id: string) {
+    if (dragId.current !== id) return
+    dragId.current = null
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    const p = layout.find((q) => q.id === id)
+    if (p) onMoveDecoration(id, p.x, p.y) // final commit (page debounced persist)
+  }
+
   return (
     <>
       <div style={plot}>
         <Terrain id={activeTerrain} style={{ borderRadius: 20 }} />
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, gap: 6 }}>
-          {/* trees */}
+        {/* trees row (top, above terrain) */}
+        <div style={{ position: 'relative', zIndex: 2 }}>
           <div style={row}>
             {ownedTrees.map((id) => {
               const active = id === headlineTree
@@ -51,30 +74,46 @@ export function Garden({
               )
             })}
           </div>
-          {/* placed decorations */}
-          <div style={{ ...row, marginTop: 2 }}>
-            {placed.length === 0 ? (
-              <span style={hint}>
-                {ownedDecorations.length === 0
-                  ? 'ซื้อของตกแต่งจากร้านค้าเพื่อแต่งสวน 🌷'
-                  : 'เลือกของตกแต่งด้านล่างมาวางในสวน'}
-              </span>
-            ) : (
-              placed.map((id) => <Decoration key={id} id={id} size={44} />)
-            )}
-          </div>
+        </div>
+        {/* decoration drag surface fills the plot */}
+        <div ref={surfaceRef} style={dragSurface}>
+          {layout.length === 0 && (
+            <span style={hint}>
+              {ownedDecorations.length === 0
+                ? 'ซื้อของตกแต่งจากร้านค้าเพื่อแต่งสวน 🌷'
+                : 'เลือกของตกแต่งด้านล่างมาวางในสวน'}
+            </span>
+          )}
+          {layout.map((p) => (
+            <div
+              key={p.id}
+              onPointerDown={(e) => onPointerDown(e, p.id)}
+              onPointerMove={(e) => onPointerMove(e, p.id)}
+              onPointerUp={(e) => onPointerUp(e, p.id)}
+              style={{
+                position: 'absolute',
+                left: `${p.x * 100}%`,
+                top: `${p.y * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                touchAction: 'none',
+                cursor: 'grab',
+                lineHeight: 0,
+                opacity: decoBusy ? 0.7 : 1,
+              }}
+            >
+              <Decoration id={p.id} size={44} />
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* manage tray: pick which decorations are on the plot */}
+      {/* manage tray: add/remove which decorations are on the plot */}
       {ownedDecorations.length > 0 && (
         <div style={tray}>
-          <p style={trayTitle}>
-            ของตกแต่ง · วางได้ {placed.length}/{GARDEN_DECORATION_SLOTS}
-          </p>
+          <p style={trayTitle}>ของตกแต่ง · วางได้ {layout.length}/{GARDEN_DECORATION_SLOTS}</p>
           <div style={chips}>
             {ownedDecorations.map((id) => {
-              const on = placed.includes(id)
+              const on = placedIds.has(id)
               const disabled = decoBusy || (!on && full)
               return (
                 <button
@@ -130,11 +169,13 @@ const plot: CSSProperties = {
   borderRadius: 22,
   padding: '18px 12px 14px',
   border: `2px solid ${t.mint}`,
-  minHeight: 220,
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'space-between',
+  minHeight: 240,
   overflow: 'hidden',
+}
+const dragSurface: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: 1,
 }
 const row: CSSProperties = {
   display: 'flex',
@@ -143,7 +184,10 @@ const row: CSSProperties = {
   alignItems: 'flex-end',
   gap: 6,
 }
-const hint: CSSProperties = { color: t.muted, fontSize: 12, textAlign: 'center', padding: '14px 0' }
+const hint: CSSProperties = {
+  position: 'absolute', left: 0, right: 0, bottom: 16,
+  color: t.muted, fontSize: 12, textAlign: 'center',
+}
 
 const tray: CSSProperties = { marginTop: 14 }
 const trayTitle: CSSProperties = { color: t.forest, fontSize: 13, fontWeight: 700, margin: '0 0 8px' }
