@@ -8,6 +8,11 @@ import { Decoration } from '@/components/botty/decorations/Decoration'
 import { theme as t } from '@/lib/theme'
 import BottomNav from '@/components/shared/BottomNav'
 
+function daysLeft(endsAt?: string | null): number {
+  if (!endsAt) return 0
+  return Math.max(0, Math.ceil((Date.parse(endsAt) - Date.now()) / 86_400_000))
+}
+
 const GATE_HINT: Record<string, string> = {
   streak_7: 'ต่อเนื่อง 7 วัน',
   rank_forest: 'ถึงระดับป่าไม้ 🌳',
@@ -54,7 +59,7 @@ export default function ShopPage() {
       <section>
         <h2 style={{ color: t.forest, fontSize: 15, fontWeight: 700, padding: '8px 18px 0', margin: 0 }}>{title}</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: 14 }}>
-          {list.map((item) => {
+          {[...list].sort((a, b) => Number(!!b.seasonal) - Number(!!a.seasonal)).map((item) => {
             const isHeadline = item.kind === 'tree' && headline === item.id
             return (
               <div key={item.id} style={{
@@ -70,6 +75,14 @@ export default function ShopPage() {
                       <Terrain id={item.id} style={{ borderRadius: 12 }} />
                     </div>}
                 <strong style={{ color: t.ink, fontSize: 14 }}>{item.name}</strong>
+                {item.seasonal && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: t.forest,
+                    background: t.mint, borderRadius: 999, padding: '2px 8px',
+                  }}>
+                    ✨ ตามฤดูกาล · เหลือ {daysLeft(item.seasonEndsAt)} วัน
+                  </span>
+                )}
 
                 {item.state === 'owned' && item.kind === 'tree' && (
                   <button disabled={isHeadline || busy === item.id} onClick={() => choose(item)}

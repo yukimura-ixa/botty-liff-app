@@ -2,7 +2,7 @@ import type { CatalogItem } from "./catalog";
 import type { AchievementId } from "./achievements";
 
 export type ItemState = "owned" | "locked" | "tooPoor" | "buyable";
-export type BuyDenyCode = "already_owned" | "locked" | "insufficient_coins";
+export type BuyDenyCode = "already_owned" | "locked" | "insufficient_coins" | "unavailable";
 export type CanBuy = { ok: true } | { ok: false; code: BuyDenyCode };
 
 type Wallet = { coins: number; ownedTrees: string[]; ownedDecorations?: string[]; ownedTerrains?: string[] };
