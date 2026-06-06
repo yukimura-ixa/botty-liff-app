@@ -36,6 +36,7 @@ const pending = {
   newTotalPoints: 2, newRank: "ต้นกล้า", prevRank: "ต้นกล้า", imagePath: "u",
   imageHash: "h", capturedAt: new Date("2026-06-06T00:00:00Z"),
   expiresAt: new Date("2026-06-06T00:05:00Z"), status: "awaiting_bin",
+  dailyBottles: 6,
 } as unknown as PendingDoc;
 
 beforeEach(() => { updates.length = 0; sets.length = 0; });
@@ -54,5 +55,11 @@ describe("awardFromPending", () => {
     await awardFromPending("u1", pending, "pend1");
     const flag = updates.find((d) => d.awarded === true);
     expect(flag).toBeTruthy();
+  });
+
+  it("sets dailyBottles from the pending running total", async () => {
+    await awardFromPending("u1", pending, "pend1");
+    const userUpdate = updates.find((d) => "dailyScans" in d);
+    expect(userUpdate!.dailyBottles).toBe(6);
   });
 });
