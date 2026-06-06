@@ -99,6 +99,7 @@ export interface StudentProfile {
   coins?: number
   ownedTrees?: string[]
   headlineTree?: string
+  ownedDecorations?: string[]
 }
 
 export function getMe() {
@@ -185,6 +186,7 @@ export function getSchoolGoal() {
 export type ShopItemState = 'owned' | 'locked' | 'tooPoor' | 'buyable'
 export interface ShopItem {
   id: string
+  kind: 'tree' | 'decoration'
   name: string
   priceCoins: number
   gate: string | null
@@ -201,7 +203,7 @@ export function getShop() {
 }
 
 export function shopBuy(itemId: string) {
-  return request<{ coins: number; ownedTrees: string[] }>('/shop/buy', {
+  return request<{ coins: number; ownedTrees: string[]; ownedDecorations: string[] }>('/shop/buy', {
     method: 'POST',
     body: JSON.stringify({ itemId }),
   })
