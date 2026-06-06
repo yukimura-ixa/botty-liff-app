@@ -2,6 +2,7 @@
 import type { CSSProperties } from 'react'
 import { TreeVariant } from './trees/TreeVariant'
 import { Decoration } from './decorations/Decoration'
+import { Terrain } from './terrains/Terrain'
 import { GARDEN_DECORATION_SLOTS } from '@/lib/garden'
 import { theme as t } from '@/lib/theme'
 
@@ -15,44 +16,53 @@ export interface GardenProps {
   placed: string[]                       // effective list shown on the plot (<= slots)
   decoBusy?: boolean
   onToggleDecoration: (id: string) => void
+  // Terrain
+  ownedTerrains: string[]
+  activeTerrain: string
+  terrainBusy?: string | null
+  onSelectTerrain: (id: string) => void
 }
 
 export function Garden({
   ownedTrees, headlineTree, busy, onSelectHeadline,
   ownedDecorations, placed, decoBusy, onToggleDecoration,
+  ownedTerrains, activeTerrain, terrainBusy, onSelectTerrain,
 }: GardenProps) {
   const full = placed.length >= GARDEN_DECORATION_SLOTS
   return (
     <>
       <div style={plot}>
-        {/* trees */}
-        <div style={row}>
-          {ownedTrees.map((id) => {
-            const active = id === headlineTree
-            return (
-              <button
-                key={id}
-                disabled={active || busy === id}
-                onClick={() => onSelectHeadline(id)}
-                style={treeSlot(active)}
-                aria-label={active ? 'ต้นไม้ที่ใช้อยู่' : 'ใช้ต้นไม้นี้'}
-              >
-                <TreeVariant variantId={id} stage={3} size={64} />
-              </button>
-            )
-          })}
-        </div>
-        {/* placed decorations */}
-        <div style={{ ...row, marginTop: 2 }}>
-          {placed.length === 0 ? (
-            <span style={hint}>
-              {ownedDecorations.length === 0
-                ? 'ซื้อของตกแต่งจากร้านค้าเพื่อแต่งสวน 🌷'
-                : 'เลือกของตกแต่งด้านล่างมาวางในสวน'}
-            </span>
-          ) : (
-            placed.map((id) => <Decoration key={id} id={id} size={44} />)
-          )}
+        <Terrain id={activeTerrain} style={{ borderRadius: 20 }} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, gap: 6 }}>
+          {/* trees */}
+          <div style={row}>
+            {ownedTrees.map((id) => {
+              const active = id === headlineTree
+              return (
+                <button
+                  key={id}
+                  disabled={active || busy === id}
+                  onClick={() => onSelectHeadline(id)}
+                  style={treeSlot(active)}
+                  aria-label={active ? 'ต้นไม้ที่ใช้อยู่' : 'ใช้ต้นไม้นี้'}
+                >
+                  <TreeVariant variantId={id} stage={3} size={64} />
+                </button>
+              )
+            })}
+          </div>
+          {/* placed decorations */}
+          <div style={{ ...row, marginTop: 2 }}>
+            {placed.length === 0 ? (
+              <span style={hint}>
+                {ownedDecorations.length === 0
+                  ? 'ซื้อของตกแต่งจากร้านค้าเพื่อแต่งสวน 🌷'
+                  : 'เลือกของตกแต่งด้านล่างมาวางในสวน'}
+              </span>
+            ) : (
+              placed.map((id) => <Decoration key={id} id={id} size={44} />)
+            )}
+          </div>
         </div>
       </div>
 
@@ -83,12 +93,40 @@ export function Garden({
           </div>
         </div>
       )}
+
+      {/* terrain picker — only when student owns more than just grass */}
+      {ownedTerrains.length > 1 && (
+        <div style={tray}>
+          <p style={trayTitle}>พื้นสวน</p>
+          <div style={chips}>
+            {ownedTerrains.map((id) => {
+              const on = id === activeTerrain
+              return (
+                <button
+                  key={id}
+                  disabled={on || terrainBusy === id}
+                  onClick={() => onSelectTerrain(id)}
+                  style={{ ...chip(on, terrainBusy === id), width: 56, height: 40, overflow: 'hidden' }}
+                  aria-pressed={on}
+                  aria-label={on ? 'พื้นที่ใช้อยู่' : 'ใช้พื้นนี้'}
+                >
+                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                    <Terrain id={id} style={{ borderRadius: 10 }} />
+                  </div>
+                  {on && <span style={check}>✓</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </>
   )
 }
 
 const plot: CSSProperties = {
-  background: `linear-gradient(180deg, ${t.mint} 0%, #CDE9C9 100%)`,
+  position: 'relative',
+  background: 'transparent',
   borderRadius: 22,
   padding: '18px 12px 14px',
   border: `2px solid ${t.mint}`,
@@ -96,6 +134,7 @@ const plot: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'space-between',
+  overflow: 'hidden',
 }
 const row: CSSProperties = {
   display: 'flex',
