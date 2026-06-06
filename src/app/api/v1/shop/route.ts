@@ -3,7 +3,7 @@ import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { getUser } from "@/server/user/repo";
 import { getSchoolGoal } from "@/server/school/repo";
-import { TREE_VARIANTS } from "@/server/shop/catalog";
+import { ALL_ITEMS } from "@/server/shop/catalog";
 import { unlockedAchievements } from "@/server/shop/achievements";
 import { itemState } from "@/server/shop/purchase";
 
@@ -28,10 +28,15 @@ export async function GET(req: NextRequest) {
     { totalPoints: prof.totalPoints, streakDays: prof.streakDays },
     goalPct,
   );
-  const wallet = { coins: prof.coins, ownedTrees: prof.ownedTrees };
+  const wallet = {
+    coins: prof.coins,
+    ownedTrees: prof.ownedTrees,
+    ownedDecorations: prof.ownedDecorations,
+  };
 
-  const items = TREE_VARIANTS.map((v) => ({
+  const items = ALL_ITEMS.map((v) => ({
     id: v.id,
+    kind: v.kind,
     name: v.name,
     priceCoins: v.priceCoins,
     gate: v.gate ?? null,

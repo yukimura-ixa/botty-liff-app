@@ -1,18 +1,19 @@
 import { fbFirestore } from "@/server/lib/firebase";
 import { FieldValue } from "firebase-admin/firestore";
 import { bust } from "@/server/lib/cache-bus";
-import { findVariant } from "./catalog";
+import { findItem } from "./catalog";
 import { canBuy, type BuyDenyCode } from "./purchase";
 import { unlockedAchievements } from "./achievements";
 import { unclaimedMilestones, milestonePayout } from "./goal-milestones";
 
 export type BuyResult =
-  | { ok: true; coins: number; ownedTrees: string[] }
+  | { ok: true; coins: number; ownedTrees: string[]; ownedDecorations: string[] }
   | { ok: false; code: BuyDenyCode | "unknown_item" };
 
 /** Atomically spend coins and grant a tree. */
-export async function buyTree(uid: string, itemId: string, goalPct: number): Promise<BuyResult> {
-  const item = findVariant(itemId);
+/** Atomically spend coins and grant a catalog item (tree or decoration). */
+export async function buyItem(uid: string, itemId: string, goalPct: number): Promise<BuyResult> {
+  const item = findItem(itemId);
   if (!item) return { ok: false, code: "unknown_item" };
   const fs = fbFirestore();
   const ref = fs.collection("users").doc(uid);
@@ -22,7 +23,10 @@ export async function buyTree(uid: string, itemId: string, goalPct: number): Pro
     const d = snap.data() ?? {};
     const wallet = {
       coins: typeof d.coins === "number" ? d.coins : 0,
-      ownedTrees: Array.isArray(d.ownedTrees) ? (d.ownedTrees as string[]) : ["oak"],
+      ownedTrees: Array.isArray(d.ownedTrees) && d.ownedTrees.length
+        ? (d.ownedTrees as string[])
+        : ["oak"],
+      ownedDecorations: Array.isArray(d.ownedDecorations) ? (d.ownedDecorations as string[]) : [],
     };
     const unlocked = unlockedAchievements(
       { totalPoints: (d.totalPoints as number) ?? 0, streakDays: (d.streakDays as number) ?? 0 },
@@ -31,12 +35,19 @@ export async function buyTree(uid: string, itemId: string, goalPct: number): Pro
     const verdict = canBuy(item, wallet, unlocked);
     if (!verdict.ok) return { ok: false, code: verdict.code };
     const coins = wallet.coins - item.priceCoins;
+    const field = item.kind === "decoration" ? "ownedDecorations" : "ownedTrees";
     tx.update(ref, {
       coins,
-      ownedTrees: FieldValue.arrayUnion(item.id),
+      [field]: FieldValue.arrayUnion(item.id),
       updatedAt: new Date(),
     });
-    return { ok: true, coins, ownedTrees: [...wallet.ownedTrees, item.id] };
+    return {
+      ok: true,
+      coins,
+      ownedTrees: item.kind === "tree" ? [...wallet.ownedTrees, item.id] : wallet.ownedTrees,
+      ownedDecorations:
+        item.kind === "decoration" ? [...wallet.ownedDecorations, item.id] : wallet.ownedDecorations,
+    };
   });
 
   if (result.ok) bust(`user:${uid}`);
