@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { getShop, shopBuy, setHeadlineTree, ApiError, type ShopItem } from '@/lib/api'
 import { TreeVariant } from '@/components/botty/trees/TreeVariant'
+import { Terrain } from '@/components/botty/terrains/Terrain'
 import { Decoration } from '@/components/botty/decorations/Decoration'
 import { theme as t } from '@/lib/theme'
 import BottomNav from '@/components/shared/BottomNav'
@@ -63,7 +64,11 @@ export default function ShopPage() {
               }}>
                 {item.kind === 'tree'
                   ? <TreeVariant variantId={item.id} stage={3} size={72} />
-                  : <Decoration id={item.id} size={64} />}
+                  : item.kind === 'decoration'
+                  ? <Decoration id={item.id} size={64} />
+                  : <div style={{ position: 'relative', width: 72, height: 56, borderRadius: 12, overflow: 'hidden' }}>
+                      <Terrain id={item.id} style={{ borderRadius: 12 }} />
+                    </div>}
                 <strong style={{ color: t.ink, fontSize: 14 }}>{item.name}</strong>
 
                 {item.state === 'owned' && item.kind === 'tree' && (
@@ -118,6 +123,7 @@ export default function ShopPage() {
 
       {section('ต้นไม้', items.filter((i) => i.kind === 'tree'))}
       {section('ของตกแต่ง', items.filter((i) => i.kind === 'decoration'))}
+      {section('พื้นสวน', items.filter((i) => i.kind === 'terrain'))}
       <BottomNav />
     </main>
   )
