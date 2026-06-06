@@ -24,7 +24,7 @@ export function Garden({ ownedTrees, ownedDecorations, headlineTree, busy, onSel
               disabled={active || busy === id}
               onClick={() => onSelectHeadline(id)}
               style={treeSlot(active)}
-              aria-label={active ? `${id} (กำลังใช้)` : `ใช้ ${id}`}
+              aria-label={active ? 'ต้นไม้ที่ใช้อยู่' : 'ใช้ต้นไม้นี้'}
             >
               <TreeVariant variantId={id} stage={3} size={64} />
             </button>

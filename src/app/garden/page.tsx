@@ -13,11 +13,14 @@ export default function GardenPage() {
   useEffect(() => { getMe().then(setMe).catch(() => setErr('โหลดสวนไม่สำเร็จ')) }, [])
 
   async function selectHeadline(id: string) {
+    setErr(null)
+    const prev = me?.headlineTree ?? 'oak'
     setBusy(id)
+    setMe((m) => (m ? { ...m, headlineTree: id } : m)) // optimistic
     try {
       await setHeadlineTree(id)
-      setMe((m) => (m ? { ...m, headlineTree: id } : m))
     } catch {
+      setMe((m) => (m ? { ...m, headlineTree: prev } : m)) // rollback
       setErr('ตั้งต้นไม้ไม่สำเร็จ')
     } finally {
       setBusy(null)

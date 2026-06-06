@@ -50,9 +50,10 @@ export default function BottomNav() {
             color: active ? t.moss : t.muted,
             paddingTop: 4, paddingBottom: 2,
             textDecoration: 'none',
+            flex: 1, minWidth: 0, maxWidth: 64,
           }}>
             <Icon color={active ? t.moss : t.muted} size={22} />
-            <span style={{ fontSize: 10.5, fontWeight: active ? 600 : 500 }}>{label}</span>
+            <span style={{ fontSize: 9.5, fontWeight: active ? 600 : 500, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
           </Link>
         );
       })}
