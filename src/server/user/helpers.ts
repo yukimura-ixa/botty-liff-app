@@ -1,3 +1,5 @@
+import type { PlacedDecoration } from "@/lib/garden";
+
 export type Profile = {
   uid: string;
   lineUserId: string;
@@ -21,6 +23,7 @@ export type Profile = {
   ownedTrees: string[];
   ownedDecorations: string[];
   displayedDecorations: string[];
+  decorationLayout: PlacedDecoration[];
   headlineTree: string;
   ownedTerrains: string[];
   activeTerrain: string;
@@ -58,6 +61,7 @@ export function defaultPendingProfile(lineUserId: string, now: Date): Profile {
     ownedTrees: ["oak"],
     ownedDecorations: [],
     displayedDecorations: [],
+    decorationLayout: [],
     headlineTree: "oak",
     ownedTerrains: ["grass"],
     activeTerrain: "grass",
