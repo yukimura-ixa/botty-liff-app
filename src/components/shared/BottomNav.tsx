@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { theme as t } from '@/lib/theme';
 
 type Item = { href: string; label: string; icon: (p: { color: string; size: number }) => ReactElement; primary?: boolean };
@@ -17,9 +17,31 @@ const studentItems: Item[] = [
   { href: '/profile',     label: 'โปรไฟล์',  icon: UserIcon },
 ];
 
+// Council members and admins approve scans, so their primary action is the
+// staff-QR screen instead of the camera.
+const staffItems: Item[] = [
+  { href: '/home',        label: 'หน้าหลัก', icon: HomeIcon },
+  { href: '/leaderboard', label: 'อันดับ',   icon: TrophyIcon },
+  { href: '/history',     label: 'ประวัติ',   icon: BottleIcon },
+  { href: '/approver',    label: '',          icon: QrIcon,    primary: true },
+  { href: '/shop',        label: 'ร้านค้า',   icon: ShopIcon },
+  { href: '/garden',      label: 'สวน',      icon: GardenIcon },
+  { href: '/profile',     label: 'โปรไฟล์',  icon: UserIcon },
+];
+
+function isStaffRole(r: string | null): boolean {
+  return r === 'council' || r === 'admin';
+}
+
 export default function BottomNav() {
   const path = usePathname();
-  const items = studentItems;
+  const [items, setItems] = useState<Item[]>(studentItems);
+  useEffect(() => {
+    // sessionStorage is undefined during SSR; read the role client-side in an effect.
+    const r = typeof window !== 'undefined' ? sessionStorage.getItem('role') : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- role is only available client-side post-mount
+    setItems(isStaffRole(r) ? staffItems : studentItems);
+  }, []);
   return (
     <nav style={{
       position: 'fixed', left: 0, right: 0, bottom: 0,
@@ -116,6 +138,17 @@ function GardenIcon({ color, size }: { color: string; size: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path d="M12 3c2.5 2 4 4 4 6.5A4 4 0 018 9.5C8 7 9.5 5 12 3z" stroke={color} strokeWidth="1.6" strokeLinejoin="round"/>
       <path d="M12 13v8M8 21h8" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function QrIcon({ color, size }: { color: string; size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth="1.6"/>
+      <rect x="14" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth="1.6"/>
+      <rect x="3" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth="1.6"/>
+      <path d="M14 14h3v3M21 14v7h-7v-3" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }

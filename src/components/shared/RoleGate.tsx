@@ -9,7 +9,7 @@ import { theme as t } from "@/lib/theme";
 
 type State = "loading" | "ok" | "denied" | "error";
 
-export type Role = "student" | "admin";
+export type Role = "student" | "council" | "admin";
 
 async function ensureAuth(): Promise<void> {
   if (sessionStorage.getItem("firebaseIdToken")) return;

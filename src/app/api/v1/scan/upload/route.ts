@@ -18,6 +18,8 @@ import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
 import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-limit";
 import { logScanAttempt, logScanEvent } from "@/server/scan/log";
 import { coinReward } from "@/server/shop/earn";
+import { createPending, hasOutstandingPending } from "@/server/scan/pending";
+import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -26,6 +28,12 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MIN_IMAGE_BYTES = 4 * 1024;
 const COOLDOWN_MS = 60_000;
 const DAILY_LIMIT = 20;
+
+type ConfirmMode = "off" | "log" | "enforce";
+function confirmMode(): ConfirmMode {
+  const m = (process.env.BIN_CONFIRM_MODE ?? "enforce") as ConfirmMode;
+  return m === "off" || m === "log" ? m : "enforce";
+}
 
 function sniffImageMime(buf: Buffer): "image/jpeg" | "image/png" | null {
   if (buf.length < 8) return null;
@@ -281,6 +289,18 @@ export async function POST(req: NextRequest) {
   }
   const phashBkt = phash ? phashBucket(phash) : undefined;
 
+  // Staff-QR confirm flow: one outstanding pending scan at a time. Blocks a second
+  // upload while the student still owes a QR confirm for the previous one.
+  const cmode = confirmMode();
+  if (cmode !== "off") {
+    const outstanding = await hasOutstandingPending(ctx.uid);
+    if (outstanding) {
+      const expiresInSec = Math.max(0, Math.ceil((outstanding.expiresAt.getTime() - Date.now()) / 1000));
+      return new Response(JSON.stringify({ error: "pending_exists", pendingId: outstanding.id, expiresInSec }), {
+        status: 409, headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
 
   let det;
   try { det = await detect(detectorConfigFromEnv(), buf); }
@@ -342,30 +362,68 @@ export async function POST(req: NextRequest) {
     coinReward: coins,
   };
 
-  const { awarded } = await awardScan(awardArgs);
-  if (!awarded) {
-    // A concurrent submit of the same scanId won the race; replay its result.
-    const prior = await getStoredScan(scanId);
-    if (prior && prior.uid === ctx.uid) return jsonOk(replayResult(scanId, prior, prof));
-    logScanEvent("error_award_race", { uid: ctx.uid, scanId });
-    return jsonError(409, "duplicate scan");
+  // off / log: award immediately (log also shadows a pending doc below).
+  if (cmode === "off" || cmode === "log") {
+    const { awarded } = await awardScan(awardArgs);
+    if (!awarded) {
+      // A concurrent submit of the same scanId won the race; replay its result.
+      const prior2 = await getStoredScan(scanId);
+      if (prior2 && prior2.uid === ctx.uid) return jsonOk(replayResult(scanId, prior2, prof));
+      logScanEvent("error_award_race", { uid: ctx.uid, scanId });
+      return jsonError(409, "duplicate scan");
+    }
+    bustLeaderboardCaches();
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "awarded",
+      at: capturedAt, localDate,
+      basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+      itemCount: det.itemCount, detectedClass: det.class,
+      confidence: det.confidence, clientConf,
+    });
   }
-  bustLeaderboardCaches();
 
-  await logScanAttempt({
-    scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
-    outcome: "awarded",
-    at: capturedAt, localDate,
-    basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
-    itemCount: det.itemCount, detectedClass: det.class,
-    confidence: det.confidence, clientConf,
-  });
-  return jsonOk({
+  // log / enforce: stage a pending scan that the staff-QR confirm will award.
+  let pendingId: string | undefined;
+  if (cmode === "log" || cmode === "enforce") {
+    pendingId = ulid();
+    try {
+      await createPending(pendingId, buildPendingDoc({
+        uid: ctx.uid, classKey: prof.classKey ?? "", scanId,
+        detectedClass: det.class, itemCount: det.itemCount, confidence: det.confidence,
+        basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+        coinReward: coins, isFirstOfDay, localDate, streakDays: newStreak,
+        newDailyCount: newDaily, newTotalPoints: newTotal, newRank,
+        prevRank: prof.rank ?? "ต้นกล้า", imagePath: imageUrl, imageHash: hash,
+        phash, phashBucket: phashBkt, capturedAt,
+      }));
+    } catch (err) {
+      console.error("pending create failed", ctx.uid, scanId, err);
+      if (cmode === "enforce") return jsonError(500, "pending create failed");
+      pendingId = undefined;
+    }
+    if (cmode === "enforce" && pendingId) {
+      await logScanAttempt({
+        scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+        outcome: "pending",
+        at: capturedAt, localDate,
+        basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
+        itemCount: det.itemCount, detectedClass: det.class,
+        confidence: det.confidence, clientConf,
+      });
+    }
+  }
+
+  const expiresInSec = Math.floor(PENDING_TTL_MS / 1000);
+  const base = {
     scanId, detectedClass: det.class, confidence: det.confidence, itemCount: det.itemCount,
     pointedItems,
     basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
     newTotalPoints: newTotal, streakDays: newStreak, prevRank: prof.rank ?? "ต้นกล้า", newRank,
-    awarded: true,
     annotatedImage: det.annotatedImage,
-  });
+  };
+  if (cmode === "off") return jsonOk({ ...base, awarded: true });
+  if (cmode === "log") return jsonOk({ ...base, awarded: true, pendingId, expiresInSec });
+  // enforce: points await the staff-QR confirm.
+  return jsonOk({ ...base, awarded: false, pendingId, expiresInSec });
 }

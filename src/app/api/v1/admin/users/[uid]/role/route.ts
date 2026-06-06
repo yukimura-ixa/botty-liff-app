@@ -24,12 +24,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   try { body = await req.json(); }
   catch { return jsonError(400, "invalid json"); }
   if (!body.role) return jsonError(400, "role required");
-  if (body.role !== "student") return jsonError(400, "role must be student");
+  if (body.role !== "student" && body.role !== "council") return jsonError(400, "role must be student or council");
+  const targetRole = body.role;
   const reason = (body.reason ?? "").toString().trim();
   if (reason.length > 200) return jsonError(400, "reason max 200");
 
   try {
-    const r = await changeRole(uid, ctx.uid, "student", reason);
+    const r = await changeRole(uid, ctx.uid, targetRole, reason);
     if (!r.claimUpdateOk) {
       return jsonNoStore({ ok: true, roleChangeId: r.roleChangeId, warning: "claim update failed; user must re-login after retry" });
     }
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   } catch (err) {
     const msg = err instanceof Error ? err.message : "failed";
     if (msg === "self") return jsonError(400, "cannot change own role");
-    if (msg === "invalid") return jsonError(400, "role must be student");
+    if (msg === "invalid") return jsonError(400, "role must be student or council");
     if (msg === "not_found") return jsonError(404, "user not found");
     if (msg === "demote_admin") return jsonError(403, "cannot demote admin");
     console.error("change role failed", err);

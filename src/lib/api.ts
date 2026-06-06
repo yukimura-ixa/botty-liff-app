@@ -127,6 +127,10 @@ export interface ScanResult {
   annotatedImage?: string
   preview?: boolean
   awarded?: boolean
+  // Staff-QR confirm flow (BIN_CONFIRM_MODE=enforce): upload returns a pending
+  // scan that awards points + coins only after the student scans a staff QR.
+  pendingId?: string
+  expiresInSec?: number
 }
 
 // scanId is a client-generated idempotency key (one per captured photo): a retry
@@ -142,6 +146,29 @@ export function uploadScan(image: File, scanId: string, clientConfidence?: numbe
     method: 'POST',
     body: fd,
   }, { timeoutMs: 45_000 })
+}
+
+// Confirms a pending scan with a staff-QR slot token, awarding points + coins.
+export function confirmScan(pendingId: string, approverToken: string) {
+  return request<{ ok: boolean; approverUid: string; sessionId: string }>('/scan/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ pendingId, approverToken }),
+  })
+}
+
+export type ApproverSlotToken = { slot: number; token: string; validFrom: number; validUntil: number }
+export type ApproverSessionResponse = {
+  sessionId: string
+  startedAt: string
+  expiresAt: string
+  tokens: ApproverSlotToken[]
+}
+// Staff opens an approver session; returns the minted rotating slot tokens.
+export function openApproverSession() {
+  return request<ApproverSessionResponse>('/approver/sessions', { method: 'POST' })
+}
+export function endApproverSession(id: string) {
+  return request<{ ok: boolean }>(`/approver/sessions/${encodeURIComponent(id)}/end`, { method: 'POST' })
 }
 
 
@@ -298,8 +325,8 @@ export function updateForestStages(thresholds: [number, number, number]) {
 }
 
 // ── Admin ─────────────────────────────────────────────────────
-export type UserRole = 'student' | 'admin';
-export type AssignableRole = 'student';
+export type UserRole = 'student' | 'council' | 'admin';
+export type AssignableRole = 'student' | 'council';
 
 export type UserRow = {
   uid: string;

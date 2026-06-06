@@ -8,7 +8,7 @@ export type RoleChangeError =
   | "demote_admin"
   | "forbidden_target";
 
-export type AssignableRole = "student";
+export type AssignableRole = "student" | "council";
 
 export async function changeRole(
   targetUid: string,
@@ -17,7 +17,7 @@ export async function changeRole(
   reason: string,
 ): Promise<{ roleChangeId: string; claimUpdateOk: boolean }> {
   if (targetUid === actorUid) throw new Error("self");
-  if (newRole !== "student") throw new Error("invalid");
+  if (newRole !== "student" && newRole !== "council") throw new Error("invalid");
   const fs = fbFirestore();
   const userRef = fs.collection("users").doc(targetUid);
   const changeRef = fs.collection("roleChanges").doc();
