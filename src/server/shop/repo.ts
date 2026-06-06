@@ -2,6 +2,7 @@ import { fbFirestore } from "@/server/lib/firebase";
 import { FieldValue } from "firebase-admin/firestore";
 import { bust } from "@/server/lib/cache-bus";
 import { findItem } from "./catalog";
+import { isAvailable } from "./season";
 import { canBuy, type BuyDenyCode } from "./purchase";
 import { unlockedAchievements } from "./achievements";
 import { unclaimedMilestones, milestonePayout } from "./goal-milestones";
@@ -14,6 +15,7 @@ export type BuyResult =
 export async function buyItem(uid: string, itemId: string, goalPct: number): Promise<BuyResult> {
   const item = findItem(itemId);
   if (!item) return { ok: false, code: "unknown_item" };
+  if (!isAvailable(item, Date.now())) return { ok: false, code: "unavailable" };
   const fs = fbFirestore();
   const ref = fs.collection("users").doc(uid);
 
