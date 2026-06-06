@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { getMe, setHeadlineTree, setGardenDisplay, type StudentProfile } from '@/lib/api'
+import { getMe, setHeadlineTree, setGardenDisplay, setActiveTerrain, type StudentProfile } from '@/lib/api'
 import { Garden } from '@/components/botty/Garden'
 import { GARDEN_DECORATION_SLOTS } from '@/lib/garden'
 import { theme as t } from '@/lib/theme'
@@ -10,6 +10,7 @@ export default function GardenPage() {
   const [me, setMe] = useState<StudentProfile | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [decoBusy, setDecoBusy] = useState(false)
+  const [terrainBusy, setTerrainBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => { getMe().then(setMe).catch(() => setErr('โหลดสวนไม่สำเร็จ')) }, [])
@@ -56,6 +57,21 @@ export default function GardenPage() {
     }
   }
 
+  async function selectTerrain(id: string) {
+    setErr(null)
+    const prev = me?.activeTerrain ?? 'grass'
+    setTerrainBusy(id)
+    setMe((m) => (m ? { ...m, activeTerrain: id } : m)) // optimistic
+    try {
+      await setActiveTerrain(id)
+    } catch {
+      setMe((m) => (m ? { ...m, activeTerrain: prev } : m)) // rollback
+      setErr('ตั้งพื้นสวนไม่สำเร็จ')
+    } finally {
+      setTerrainBusy(null)
+    }
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: t.bone, paddingBottom: 110 }}>
       <header style={{ padding: '20px 18px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -76,6 +92,10 @@ export default function GardenPage() {
             placed={placed}
             decoBusy={decoBusy}
             onToggleDecoration={toggleDecoration}
+            ownedTerrains={me.ownedTerrains ?? ['grass']}
+            activeTerrain={me.activeTerrain ?? 'grass'}
+            terrainBusy={terrainBusy}
+            onSelectTerrain={selectTerrain}
           />
           <p style={{ color: t.muted, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
             แตะต้นไม้เพื่อใช้เป็นต้นไม้ประจำตัว · แตะของตกแต่งเพื่อจัดวาง
