@@ -4,6 +4,7 @@ import { jsonError, jsonOk } from "@/server/lib/http";
 import { getUser } from "@/server/user/repo";
 import { getSchoolGoal } from "@/server/school/repo";
 import { ALL_ITEMS } from "@/server/shop/catalog";
+import { isAvailable, seasonEndsAt } from "@/server/shop/season";
 import { unlockedAchievements } from "@/server/shop/achievements";
 import { itemState } from "@/server/shop/purchase";
 
@@ -35,14 +36,19 @@ export async function GET(req: NextRequest) {
     ownedTerrains: prof.ownedTerrains,
   };
 
-  const items = ALL_ITEMS.map((v) => ({
-    id: v.id,
-    kind: v.kind,
-    name: v.name,
-    priceCoins: v.priceCoins,
-    gate: v.gate ?? null,
-    state: itemState(v, wallet, unlocked),
-  }));
+  const now = Date.now();
+  const items = ALL_ITEMS
+    .filter((v) => isAvailable(v, now))
+    .map((v) => ({
+      id: v.id,
+      kind: v.kind,
+      name: v.name,
+      priceCoins: v.priceCoins,
+      gate: v.gate ?? null,
+      state: itemState(v, wallet, unlocked),
+      seasonal: !!v.season,
+      seasonEndsAt: v.season ? seasonEndsAt(v) : null,
+    }));
 
   return jsonOk({ coins: prof.coins, headlineTree: prof.headlineTree, activeTerrain: prof.activeTerrain, items });
 }
