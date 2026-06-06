@@ -26,7 +26,8 @@ describe("catalog integrity", () => {
     expect(grass?.priceCoins).toBe(0);
     expect(grass?.gate).toBeUndefined();
     expect(findItem("cosmic")?.kind).toBe("terrain");
-    expect(ALL_ITEMS.filter((i) => i.kind === "terrain").length).toBe(6);
+    expect(ALL_ITEMS.filter((i) => i.kind === "terrain").length).toBe(8);
+    expect(ALL_ITEMS.filter((i) => i.kind === "decoration").length).toBe(10);
   });
 
   it("findItem resolves both kinds; findVariant resolves trees only", () => {
@@ -34,5 +35,14 @@ describe("catalog integrity", () => {
     expect(findItem("flower_patch")?.kind).toBe("decoration");
     expect(findVariant("flower_patch")).toBeUndefined();
     expect(findVariant("oak")?.id).toBe("oak");
+  });
+
+  it("seasonal items carry a from/until window", () => {
+    for (const id of ["summer", "songkran", "teachers_day", "loy_krathong", "mothers_day", "fathers_day"]) {
+      const item = findItem(id);
+      expect(item?.season?.from).toBeTruthy();
+      expect(item?.season?.until).toBeTruthy();
+    }
+    expect(findItem("grass")?.season).toBeUndefined(); // non-seasonal stays open
   });
 });
