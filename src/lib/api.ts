@@ -1,5 +1,7 @@
 // API client for the Go backend at /v1
 
+import type { PlacedDecoration } from '@/lib/garden'
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? '/v1'
 
 // Format internal classKey (e.g. "4-3") to Thai display ("ม.4/3"). Legacy "4/3" also handled.
@@ -101,6 +103,7 @@ export interface StudentProfile {
   headlineTree?: string
   ownedDecorations?: string[]
   displayedDecorations?: string[]
+  decorationLayout?: PlacedDecoration[]
   ownedTerrains?: string[]
   activeTerrain?: string
 }
@@ -257,6 +260,13 @@ export function setGardenDisplay(decorations: string[]) {
   return request<{ displayedDecorations: string[] }>('/garden/display', {
     method: 'POST',
     body: JSON.stringify({ decorations }),
+  })
+}
+
+export function setGardenLayout(layout: PlacedDecoration[]) {
+  return request<{ decorationLayout: PlacedDecoration[] }>('/garden/layout', {
+    method: 'POST',
+    body: JSON.stringify({ layout }),
   })
 }
 

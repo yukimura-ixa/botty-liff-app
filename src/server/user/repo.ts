@@ -2,6 +2,7 @@ import { cache } from "react";
 import { fbFirestore, fbAuth } from "@/server/lib/firebase";
 import type { Timestamp } from "firebase-admin/firestore";
 import { defaultPendingProfile, classKey, type Profile } from "./helpers";
+import { defaultLayout, type PlacedDecoration } from "@/lib/garden";
 import { TtlCache } from "@/server/leaderboard/cache";
 import { registerBuster, bust } from "@/server/lib/cache-bus";
 
@@ -26,6 +27,23 @@ function dateOf(v: unknown): Date | undefined {
   return undefined;
 }
 
+function coerceLayout(rawLayout: unknown, rawDisplayed: unknown): PlacedDecoration[] {
+  if (Array.isArray(rawLayout)) {
+    const ok = rawLayout.filter(
+      (e): e is PlacedDecoration =>
+        !!e && typeof e === "object" &&
+        typeof (e as PlacedDecoration).id === "string" &&
+        Number.isFinite((e as PlacedDecoration).x) &&
+        Number.isFinite((e as PlacedDecoration).y),
+    );
+    if (ok.length) return ok;
+  }
+  if (Array.isArray(rawDisplayed) && rawDisplayed.every((x) => typeof x === "string")) {
+    return defaultLayout(rawDisplayed as string[]);
+  }
+  return [];
+}
+
 function coerceProfile(raw: Record<string, unknown>): Profile {
   const p = { ...raw } as Profile;
   const createdAt = dateOf(raw.createdAt);
@@ -46,6 +64,7 @@ function coerceProfile(raw: Record<string, unknown>): Profile {
   p.displayedDecorations = Array.isArray(raw.displayedDecorations)
     ? (raw.displayedDecorations as string[])
     : [];
+  p.decorationLayout = coerceLayout(raw.decorationLayout, raw.displayedDecorations);
   p.headlineTree = typeof raw.headlineTree === "string" && raw.headlineTree
     ? raw.headlineTree
     : "oak";
