@@ -161,16 +161,25 @@ export function confirmScan(pendingId: string, approverToken: string) {
   })
 }
 
-export type ApproverSlotToken = { slot: number; token: string; validFrom: number; validUntil: number }
+export type ApproverTokenInfo = {
+  token: string
+  slot: number
+  validFrom: number
+  validUntil: number
+  awardsCount: number
+}
 export type ApproverSessionResponse = {
   sessionId: string
   startedAt: string
   expiresAt: string
-  tokens: ApproverSlotToken[]
-}
-// Staff opens an approver session; returns the minted rotating slot tokens.
+} & ApproverTokenInfo
+// Staff opens a standing approver stand; returns the current rotating token.
 export function openApproverSession() {
   return request<ApproverSessionResponse>('/approver/sessions', { method: 'POST' })
+}
+// Fetches the current rotating token for an open stand (client polls each rotation).
+export function getApproverToken(id: string) {
+  return request<ApproverTokenInfo>(`/approver/sessions/${encodeURIComponent(id)}/token`, { method: 'GET' })
 }
 export function endApproverSession(id: string) {
   return request<{ ok: boolean }>(`/approver/sessions/${encodeURIComponent(id)}/end`, { method: 'POST' })
