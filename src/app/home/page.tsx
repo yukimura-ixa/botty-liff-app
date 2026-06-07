@@ -187,20 +187,43 @@ export default function HomePage() {
               </div>
             )}
           </div>
-          {!loading && (profile?.streakDays ?? 0) > 0 && (
-            <div
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {!loading && (profile?.streakDays ?? 0) > 0 && (
+              <div
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.16)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                🔥 {profile!.streakDays} วันติด
+              </div>
+            )}
+            <Link
+              href="/tutorial?deck=student"
+              aria-label="วิธีใช้งาน"
               style={{
-                padding: "6px 14px",
+                width: 34,
+                height: 34,
                 borderRadius: 999,
                 background: "rgba(255,255,255,0.16)",
                 border: "1px solid rgba(255,255,255,0.2)",
-                fontSize: 12,
-                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontSize: 16,
+                fontWeight: 800,
+                textDecoration: "none",
+                flexShrink: 0,
               }}
             >
-              🔥 {profile!.streakDays} วันติด
-            </div>
-          )}
+              ?
+            </Link>
+          </div>
         </div>
 
         <div style={{ marginTop: 20 }}>
