@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Project: botty-liff-app
 
-School recycling rewards system. LINE LIFF webview. Students scan plastic bottles → AI detects → earns points immediately. Admins adjust, approve large adjustments, and audit.
+School recycling rewards system. LINE LIFF webview. Students scan plastic bottles → AI detects → points are awarded (instantly, or after a staff-QR confirm when `BIN_CONFIRM_MODE=enforce`, the default — see Domain quirks). Council/admin staff run the approval QR; admins adjust, approve large adjustments, and audit.
 
 ## Stack
 - Next.js 16 App Router (React 19, Turbopack)
@@ -35,10 +35,10 @@ vercel env pull      # sync .env.local from Vercel
 - `/api/v1/*` — backend routes (Node runtime), bearer = Firebase ID token
 
 ## Roles
-`student` → `admin`. Guard in `src/server/lib/role-guard.ts` (`hasRole(ctx, "admin")`). Admins set manually in Firestore (never via API). Admin absorbs all former teacher powers. (Legacy `council`/`teacher` roles removed; migrate any leftover accounts to `student` via `scripts/downgrade-roles.ts`.)
+`student` → `council` → `admin` (type `AuthContext["role"]` in `src/server/lib/auth.ts`). Two guards in `src/server/lib/role-guard.ts`: `hasRole(ctx, "admin")` for admin-only endpoints, and `canApprove(role)` (`council` **or** `admin`) for the staff-QR approve flow. `admin` is set manually in Firestore (never via API, `changeRole` refuses to assign/demote it). `council` IS assignable via API by admins — `changeRole` in `src/server/user/role-change.ts` accepts `student`/`council`. Admin absorbs all former teacher powers; the `teacher` role was removed (paths kept under `/teacher`, admin-only). `scripts/downgrade-roles.ts` is a migration *tool* that downgrades any `council`/`teacher` accounts to `student` — run it only if you intend to retire the council role; it does not reflect current state (council is live).
 
 ## Domain quirks
-- Scan flow: upload image → AI detect class → award base + streak bonus immediately. Abuse guards: duplicate-image hash, 60s cooldown, daily limit 20, IP rate limit. (No approver-QR confirmation step.)
+- Scan flow: upload image → AI detect class → build a **pending** award. Whether points land immediately or need a staff-QR confirm depends on `BIN_CONFIRM_MODE` (`src/app/api/v1/scan/confirm/route.ts`): `off` = legacy instant award; `log` = award instantly but record; `enforce` (**the default**) = points/coins stay locked until the student scans a staff member's rotating QR. Staff/council open `/approver` to run a 5-min session of 30s-rotating QR slots (`src/server/approver/*`); each slot is single-use (one student per QR). Abuse guards: duplicate-image hash, 60s cooldown, daily limit 20, IP rate limit.
 - Point adjustments: ≤±10 immediate, ±11–50 needs admin approval (dual-approval). `TEACHER_IMMEDIATE_CAP` / `TEACHER_REQUEST_CAP` in `src/lib/api.ts`.
 - Storage: migrated GCS → Vercel Blob (commit `ef2da57`). `httpsUrl()` in `src/server/scan/storage.ts:19` still resolves legacy `gs://` rows.
 - Firebase Admin needs `GCP_SERVICE_ACCOUNT_JSON` + `GCP_PROJECT` (Firestore auth, not GCS).
@@ -52,6 +52,8 @@ vercel env pull      # sync .env.local from Vercel
 | `NEXT_PUBLIC_LIFF_ID` | LINE LIFF init |
 | `NEXT_PUBLIC_FIREBASE_*` | Firebase client config |
 | `LINE_CHANNEL_ID` | LINE token verify |
+| `STAFF_QR_SECRET` | HMAC secret for staff-QR slot tokens. Required when `BIN_CONFIRM_MODE` ≠ `off` — session route throws without it; confirm route 500s if < 16 bytes. |
+| `BIN_CONFIRM_MODE` | `off` / `log` / `enforce` (default `enforce`). Gates whether scan points need a staff-QR confirm. |
 
 ## Layout
 - `src/app/` — routes, API handlers
