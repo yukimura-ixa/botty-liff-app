@@ -6,8 +6,16 @@ import {
   openApproverSession, endApproverSession,
   type ApproverSlotToken,
 } from "@/lib/api";
+import { shouldAutoShow } from "@/components/tutorial/logic";
 
 const SLOT_MS = 30_000;
+
+// Guards against an auto-show redirect loop when localStorage writes are blocked
+// (LIFF private mode): markSeen can't persist, so without this in-memory guard the
+// council tutorial would re-trigger every time the user is routed back to /approver.
+// Module-level state survives client-side navigation (the module isn't reloaded),
+// so the auto-show fires at most once per loaded session.
+let councilTutorialAutoShown = false;
 
 type Session = {
   sessionId: string;
@@ -23,6 +31,14 @@ export default function ApproverPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [now, setNow] = useState(() => Date.now());
+
+  // First time a staff member opens this screen, show the council tutorial once.
+  useEffect(() => {
+    if (!councilTutorialAutoShown && shouldAutoShow("council", (k) => localStorage.getItem(k))) {
+      councilTutorialAutoShown = true;
+      router.replace("/tutorial?deck=council");
+    }
+  }, [router]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -79,16 +95,28 @@ export default function ApproverPage() {
 
   return (
     <main style={{ minHeight: "100dvh", background: t.bone, padding: "32px 20px 40px" }}>
-      <button
-        onClick={() => router.replace("/home")}
-        style={{
-          background: "transparent", border: "none", color: t.muted,
-          fontSize: 13, padding: 0, cursor: "pointer", marginBottom: 16,
-          fontFamily: "inherit",
-        }}
-      >
-        ← กลับ
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <button
+          onClick={() => router.replace("/home")}
+          style={{
+            background: "transparent", border: "none", color: t.muted,
+            fontSize: 13, padding: 0, cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          ← กลับ
+        </button>
+        <button
+          onClick={() => router.push("/tutorial?deck=council")}
+          style={{
+            background: "transparent", border: "none", color: t.moss,
+            fontSize: 13, padding: 0, cursor: "pointer", fontWeight: 700,
+            fontFamily: "inherit",
+          }}
+        >
+          วิธีใช้ ?
+        </button>
+      </div>
 
       <h1 style={{ fontSize: 24, fontWeight: 800, color: t.forest, margin: "0 0 6px" }}>
         QR เจ้าหน้าที่

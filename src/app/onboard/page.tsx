@@ -33,7 +33,7 @@ export default function OnboardPage() {
         room: Number(room),
         consent: true,
       });
-      router.replace("/home");
+      router.replace("/tutorial?deck=student");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "เกิดข้อผิดพลาด");
       setSaving(false);
