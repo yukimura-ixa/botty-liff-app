@@ -18,6 +18,8 @@ function TutorialInner() {
   const cfg = DECKS[deck];
 
   function done() {
+    // The student flag is written for symmetry but currently only the council deck
+    // is auto-shown (onboard always shows the student deck; the home help icon always replays).
     markSeen(deck, (k, v) => localStorage.setItem(k, v));
     router.replace(cfg.doneHref);
   }

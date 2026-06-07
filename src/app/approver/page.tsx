@@ -10,6 +10,13 @@ import { shouldAutoShow } from "@/components/tutorial/logic";
 
 const SLOT_MS = 30_000;
 
+// Guards against an auto-show redirect loop when localStorage writes are blocked
+// (LIFF private mode): markSeen can't persist, so without this in-memory guard the
+// council tutorial would re-trigger every time the user is routed back to /approver.
+// Module-level state survives client-side navigation (the module isn't reloaded),
+// so the auto-show fires at most once per loaded session.
+let councilTutorialAutoShown = false;
+
 type Session = {
   sessionId: string;
   startedAtMs: number;
@@ -27,7 +34,8 @@ export default function ApproverPage() {
 
   // First time a staff member opens this screen, show the council tutorial once.
   useEffect(() => {
-    if (shouldAutoShow("council", (k) => localStorage.getItem(k))) {
+    if (!councilTutorialAutoShown && shouldAutoShow("council", (k) => localStorage.getItem(k))) {
+      councilTutorialAutoShown = true;
       router.replace("/tutorial?deck=council");
     }
   }, [router]);
