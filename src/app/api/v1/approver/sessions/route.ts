@@ -4,15 +4,10 @@ import { canApprove } from "@/server/lib/role-guard";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { createSession } from "@/server/approver/repo";
 import { currentSlotToken } from "@/server/approver/mint";
+import { staffSecret } from "@/server/approver/secret";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
-
-function staffSecret(): Buffer {
-  const raw = process.env.STAFF_QR_SECRET;
-  if (!raw) throw new Error("STAFF_QR_SECRET not configured");
-  return Buffer.from(raw, "utf8");
-}
 
 export async function POST(req: NextRequest) {
   let ctx;

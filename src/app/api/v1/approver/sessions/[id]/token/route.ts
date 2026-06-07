@@ -4,15 +4,10 @@ import { canApprove } from "@/server/lib/role-guard";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { getSession } from "@/server/approver/repo";
 import { currentSlotToken } from "@/server/approver/mint";
+import { staffSecret } from "@/server/approver/secret";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
-
-function staffSecret(): Buffer {
-  const raw = process.env.STAFF_QR_SECRET;
-  if (!raw) throw new Error("STAFF_QR_SECRET not configured");
-  return Buffer.from(raw, "utf8");
-}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   let ctx;
@@ -35,7 +30,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (session.endedAtMs !== null) return jsonError(410, "session ended");
   if (Date.now() > session.expiresAtMs) return jsonError(410, "session expired");
 
-  const minted = currentSlotToken(session.id, session.startedAtMs, staffSecret(), Date.now());
+  let minted;
+  try {
+    minted = currentSlotToken(session.id, session.startedAtMs, staffSecret(), Date.now());
+  } catch (err) {
+    console.error("approver token mint failed", err);
+    return jsonError(500, "server misconfigured");
+  }
   return jsonOk({
     token: minted.token,
     slot: minted.slot,

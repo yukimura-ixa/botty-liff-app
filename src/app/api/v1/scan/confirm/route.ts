@@ -4,6 +4,7 @@ import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { fbFirestore } from "@/server/lib/firebase";
 import { verifySlotToken } from "@/server/approver/token";
+import { staffSecret } from "@/server/approver/secret";
 import { isSlotTokenValid, SLOT_GRACE_SEC } from "@/server/approver/mint";
 import { claimSlot } from "@/server/approver/repo";
 import { awardFromPending } from "@/server/scan/award";
@@ -41,8 +42,9 @@ export async function POST(req: NextRequest) {
   catch { return jsonError(400, "invalid json"); }
   if (!body.pendingId || !body.approverToken) return jsonError(400, "pendingId and approverToken required");
 
-  const secret = Buffer.from(process.env.STAFF_QR_SECRET ?? "");
-  if (secret.length < 16) return jsonError(500, "server misconfigured");
+  let secret: Buffer;
+  try { secret = staffSecret(); }
+  catch { return jsonError(500, "server misconfigured"); }
 
   let claims;
   try { claims = verifySlotToken(secret, body.approverToken); }
