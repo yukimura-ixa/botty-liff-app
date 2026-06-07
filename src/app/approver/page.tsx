@@ -1,14 +1,12 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { theme as t } from "@/lib/theme";
 import {
-  openApproverSession, endApproverSession,
-  type ApproverSlotToken,
+  openApproverSession, getApproverToken, endApproverSession,
+  ApiError, type ApproverTokenInfo,
 } from "@/lib/api";
 import { shouldAutoShow } from "@/components/tutorial/logic";
-
-const SLOT_MS = 30_000;
 
 // Guards against an auto-show redirect loop when localStorage writes are blocked
 // (LIFF private mode): markSeen can't persist, so without this in-memory guard the
@@ -17,20 +15,24 @@ const SLOT_MS = 30_000;
 // so the auto-show fires at most once per loaded session.
 let councilTutorialAutoShown = false;
 
-type Session = {
+type Stand = {
   sessionId: string;
-  startedAtMs: number;
   expiresAtMs: number;
-  tokens: ApproverSlotToken[];
+  tok: ApproverTokenInfo;
 };
 
 export default function ApproverPage() {
   const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
+  const [stand, setStand] = useState<Stand | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [expired, setExpired] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Holds the latest scheduleRefetch so the timer callback can re-arm itself
+  // without referencing the const before its initializer completes.
+  const scheduleRefetchRef = useRef<(sessionId: string, validUntilSec: number) => void>(() => {});
 
   // First time a staff member opens this screen, show the council tutorial once.
   useEffect(() => {
@@ -45,53 +47,93 @@ export default function ApproverPage() {
     return () => clearInterval(id);
   }, []);
 
-  const startSession = useCallback(async () => {
-    setBusy(true); setErr("");
-    try {
-      const r = await openApproverSession();
-      setSession({
-        sessionId: r.sessionId,
-        startedAtMs: new Date(r.startedAt).getTime(),
-        expiresAtMs: new Date(r.expiresAt).getTime(),
-        tokens: r.tokens,
-      });
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "failed");
-    } finally { setBusy(false); }
+  const clearRefetch = useCallback(() => {
+    if (refetchTimer.current) {
+      clearTimeout(refetchTimer.current);
+      refetchTimer.current = null;
+    }
   }, []);
 
-  const stopSession = useCallback(async () => {
-    if (!session) return;
-    setBusy(true);
+  // Schedules the next current-token fetch ~2s before the active token expires.
+  const scheduleRefetch = useCallback((sessionId: string, validUntilSec: number) => {
+    clearRefetch();
+    const leadMs = 2000;
+    const delay = Math.max(1000, validUntilSec * 1000 - Date.now() - leadMs);
+    refetchTimer.current = setTimeout(async () => {
+      try {
+        const tok = await getApproverToken(sessionId);
+        setStand((s) => (s ? { ...s, tok } : s));
+        scheduleRefetchRef.current(sessionId, tok.validUntil);
+      } catch (e: unknown) {
+        if (e instanceof ApiError && e.status === 410) {
+          setExpired(true);
+          return;
+        }
+        // Transient failure: keep the stale QR; a manual refresh button is shown.
+        setErr(e instanceof Error ? e.message : "รีเฟรชไม่สำเร็จ");
+      }
+    }, delay);
+  }, [clearRefetch]);
+  useEffect(() => {
+    scheduleRefetchRef.current = scheduleRefetch;
+  }, [scheduleRefetch]);
+
+  const startSession = useCallback(async () => {
+    setBusy(true); setErr(""); setExpired(false);
     try {
-      await endApproverSession(session.sessionId);
-      setSession(null);
-      setQrDataUrl("");
+      const r = await openApproverSession();
+      const tok: ApproverTokenInfo = {
+        token: r.token, slot: r.slot, validFrom: r.validFrom, validUntil: r.validUntil, awardsCount: r.awardsCount,
+      };
+      setStand({ sessionId: r.sessionId, expiresAtMs: new Date(r.expiresAt).getTime(), tok });
+      scheduleRefetch(r.sessionId, r.validUntil);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "failed");
     } finally { setBusy(false); }
-  }, [session]);
+  }, [scheduleRefetch]);
 
-  const slotIdx = session
-    ? Math.max(0, Math.min(session.tokens.length - 1, Math.floor((now - session.startedAtMs) / SLOT_MS)))
-    : -1;
-  const currentToken = session && slotIdx >= 0 ? session.tokens[slotIdx] : null;
-  const sessionEnded = session ? now >= session.expiresAtMs : false;
-  const secsLeftInSlot = currentToken ? Math.max(0, Math.ceil((currentToken.validUntil * 1000 - now) / 1000)) : 0;
-  const secsLeftInSession = session ? Math.max(0, Math.ceil((session.expiresAtMs - now) / 1000)) : 0;
-  const mins = Math.floor(secsLeftInSession / 60);
-  const secs = secsLeftInSession % 60;
+  const manualRefresh = useCallback(async () => {
+    if (!stand) return;
+    setErr("");
+    try {
+      const tok = await getApproverToken(stand.sessionId);
+      setStand((s) => (s ? { ...s, tok } : s));
+      scheduleRefetch(stand.sessionId, tok.validUntil);
+    } catch (e: unknown) {
+      if (e instanceof ApiError && e.status === 410) { setExpired(true); return; }
+      setErr(e instanceof Error ? e.message : "รีเฟรชไม่สำเร็จ");
+    }
+  }, [stand, scheduleRefetch]);
 
+  const stopSession = useCallback(async () => {
+    if (!stand) return;
+    setBusy(true);
+    clearRefetch();
+    try {
+      await endApproverSession(stand.sessionId);
+      setStand(null);
+      setQrDataUrl("");
+      setExpired(false);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "failed");
+    } finally { setBusy(false); }
+  }, [stand, clearRefetch]);
+
+  useEffect(() => () => clearRefetch(), [clearRefetch]);
+
+  // Render the QR whenever the active token changes.
   useEffect(() => {
-    if (!currentToken || sessionEnded) return;
+    if (!stand || expired) return;
     let cancelled = false;
     (async () => {
       const QRCode = (await import("qrcode")).default;
-      const url = await QRCode.toDataURL(currentToken.token, { errorCorrectionLevel: "M", width: 512, margin: 1 });
+      const url = await QRCode.toDataURL(stand.tok.token, { errorCorrectionLevel: "M", width: 512, margin: 1 });
       if (!cancelled) setQrDataUrl(url);
     })().catch((e) => console.error("qr render failed", e));
     return () => { cancelled = true; };
-  }, [currentToken, sessionEnded]);
+  }, [stand, expired]);
+
+  const secsLeftInSlot = stand ? Math.max(0, Math.ceil(stand.tok.validUntil - now / 1000)) : 0;
 
   return (
     <main style={{ minHeight: "100dvh", background: t.bone, padding: "32px 20px 40px" }}>
@@ -122,7 +164,7 @@ export default function ApproverPage() {
         QR เจ้าหน้าที่
       </h1>
       <p style={{ fontSize: 13, color: t.muted, margin: "0 0 22px", lineHeight: 1.5 }}>
-        นักเรียนสแกน QR นี้เพื่อรับคะแนน · QR เปลี่ยนทุก 30 วินาที · เซสชัน 5 นาที
+        นักเรียนสแกน QR นี้เพื่อรับคะแนน · QR เปลี่ยนทุก 5 นาที · นักเรียนสแกนรับคะแนนได้หลายคน
       </p>
 
       {err && (
@@ -131,7 +173,7 @@ export default function ApproverPage() {
         </div>
       )}
 
-      {!session && (
+      {!stand && (
         <button
           onClick={startSession}
           disabled={busy}
@@ -142,11 +184,11 @@ export default function ApproverPage() {
             fontFamily: "inherit", opacity: busy ? 0.5 : 1,
           }}
         >
-          {busy ? "กำลังเปิด..." : "เปิดเซสชัน 5 นาที"}
+          {busy ? "กำลังเปิด..." : "เปิด QR เจ้าหน้าที่"}
         </button>
       )}
 
-      {session && !sessionEnded && (
+      {stand && !expired && (
         <>
           <div style={{
             background: "white", border: `1px solid ${t.mint}`, borderRadius: 18,
@@ -156,7 +198,7 @@ export default function ApproverPage() {
               fontSize: 11, color: t.muted, letterSpacing: 0.8, fontWeight: 600,
               textTransform: "uppercase", marginBottom: 6,
             }}>
-              เหลือ {mins}:{String(secs).padStart(2, "0")} นาที · ช่อง {slotIdx + 1}/{session.tokens.length}
+              ให้คะแนนแล้ว {stand.tok.awardsCount} ครั้ง
             </div>
             {qrDataUrl ? (
               <img
@@ -175,20 +217,31 @@ export default function ApproverPage() {
           </div>
 
           <button
-            onClick={stopSession}
+            onClick={manualRefresh}
             disabled={busy}
             style={{
               marginTop: 16, width: "100%", height: 44, borderRadius: 12,
+              background: "white", color: t.forest, border: `1px solid ${t.mint}`,
+              fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            รีเฟรช QR
+          </button>
+          <button
+            onClick={stopSession}
+            disabled={busy}
+            style={{
+              marginTop: 10, width: "100%", height: 44, borderRadius: 12,
               background: "white", color: t.coral, border: `1px solid ${t.coral}`,
               fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
             }}
           >
-            ปิดเซสชัน
+            ปิด QR
           </button>
         </>
       )}
 
-      {session && sessionEnded && (
+      {stand && expired && (
         <div style={{
           background: "white", border: `1px solid ${t.mint}`, borderRadius: 18,
           padding: 22, textAlign: "center",
@@ -198,7 +251,7 @@ export default function ApproverPage() {
             เซสชันหมดเวลา
           </div>
           <button
-            onClick={() => { setSession(null); setQrDataUrl(""); startSession(); }}
+            onClick={() => { setStand(null); setQrDataUrl(""); setExpired(false); startSession(); }}
             disabled={busy}
             style={{
               width: "100%", height: 44, borderRadius: 12, border: "none",
@@ -206,7 +259,7 @@ export default function ApproverPage() {
               fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
             }}
           >
-            เปิดเซสชันใหม่
+            เปิดใหม่
           </button>
         </div>
       )}
