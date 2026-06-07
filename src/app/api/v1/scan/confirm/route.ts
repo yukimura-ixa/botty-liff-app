@@ -4,6 +4,7 @@ import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { fbFirestore } from "@/server/lib/firebase";
 import { verifySlotToken } from "@/server/approver/token";
+import { isSlotTokenValid, SLOT_GRACE_SEC } from "@/server/approver/mint";
 import { claimSlot } from "@/server/approver/repo";
 import { awardFromPending } from "@/server/scan/award";
 import {
@@ -48,8 +49,9 @@ export async function POST(req: NextRequest) {
   catch { return jsonError(400, "invalid approver token"); }
 
   const nowSec = Math.floor(Date.now() / 1000);
-  if (nowSec < claims.validFrom) return jsonError(400, "approver token not yet valid");
-  if (nowSec > claims.validUntil) return jsonError(400, "approver token expired");
+  if (!isSlotTokenValid(nowSec, claims.validFrom, claims.validUntil, SLOT_GRACE_SEC)) {
+    return jsonError(400, "approver token expired");
+  }
 
   // Pre-validate the pending BEFORE claiming a slot, so a stale/expired/foreign
   // pending doesn't burn an approver slot and lock the student out of the session.
@@ -77,8 +79,7 @@ export async function POST(req: NextRequest) {
     if (msg === "session_not_found") return jsonError(400, "approver session not found");
     if (msg === "session_ended") return jsonError(400, "approver session ended");
     if (msg === "session_expired") return jsonError(400, "approver session expired");
-    if (msg === "slot_used") return jsonError(409, "QR ถูกใช้ไปแล้ว ขอ QR ใหม่จากเจ้าหน้าที่");
-    if (msg === "student_already_awarded") return jsonError(409, "คุณได้รับคะแนนจากรอบนี้แล้ว ขอ QR ใหม่จากเจ้าหน้าที่ในรอบถัดไป");
+    if (msg === "already_claimed_code") return jsonError(409, "คุณรับคะแนนจาก QR นี้แล้ว รอรอบถัดไป");
     console.error("claim slot failed", e);
     return jsonError(500, "claim failed");
   }
