@@ -3,7 +3,7 @@ import { verifyBearerToken, AuthError } from "@/server/lib/auth";
 import { canApprove } from "@/server/lib/role-guard";
 import { jsonError, jsonOk } from "@/server/lib/http";
 import { createSession } from "@/server/approver/repo";
-import { mintSessionTokens } from "@/server/approver/mint";
+import { currentSlotToken } from "@/server/approver/mint";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -25,12 +25,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const session = await createSession(ctx.uid);
-    const tokens = mintSessionTokens(session.id, session.startedAtMs, staffSecret());
+    const minted = currentSlotToken(session.id, session.startedAtMs, staffSecret(), Date.now());
     return jsonOk({
       sessionId: session.id,
       startedAt: new Date(session.startedAtMs).toISOString(),
       expiresAt: new Date(session.expiresAtMs).toISOString(),
-      tokens,
+      token: minted.token,
+      slot: minted.slot,
+      validFrom: minted.validFrom,
+      validUntil: minted.validUntil,
+      awardsCount: session.awardsCount,
     });
   } catch (err) {
     console.error("approver session create failed", err);
