@@ -100,6 +100,7 @@ export default function HomePage() {
     setRole(sessionStorage.getItem("role"));
   }, []);
   const isAdmin = role === "admin";
+  const isStaff = role === "council" || role === "admin";
 
   if (error) {
     return (
@@ -436,6 +437,9 @@ export default function HomePage() {
             },
             { href: "/history", emoji: "📋", label: "ประวัติสแกน", bg: t.leaf },
             { href: "/profile", emoji: "🌱", label: "โปรไฟล์", bg: "#2A5E3F" },
+            ...(isStaff
+              ? [{ href: "/approver", emoji: "🔳", label: "QR เจ้าหน้าที่", bg: t.moss }]
+              : []),
             ...(isAdmin
               ? [
                   { href: "/teacher", emoji: "📊", label: "แดชบอร์ด", bg: t.ink },
