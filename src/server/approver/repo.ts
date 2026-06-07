@@ -1,6 +1,6 @@
 import { fbFirestore } from "@/server/lib/firebase";
 import { FieldValue } from "firebase-admin/firestore";
-import { SESSION_DURATION_MS } from "./mint";
+import { STAND_DURATION_MS } from "./mint";
 
 const COLLECTION = "approverSessions";
 
@@ -40,7 +40,7 @@ export async function createSession(staffUid: string): Promise<ApproverSession> 
   const fs = fbFirestore();
   const ref = fs.collection(COLLECTION).doc();
   const startedAt = new Date();
-  const expiresAt = new Date(startedAt.getTime() + SESSION_DURATION_MS);
+  const expiresAt = new Date(startedAt.getTime() + STAND_DURATION_MS);
   await ref.set({
     staffUid,
     startedAt,
@@ -81,14 +81,16 @@ export type ClaimError =
   | "session_not_found"
   | "session_ended"
   | "session_expired"
-  | "slot_used"
-  | "student_already_awarded";
+  | "already_claimed_code";
 
+// Multi-use: any number of distinct students may claim the same slot (code),
+// but each student may claim a given slot at most once. The per-(slot,uid) claim
+// doc enforces "once per code"; the upload-side exponential cooldown governs the
+// student's overall volume.
 export async function claimSlot(sessionId: string, slot: number, studentUid: string, scanId: string): Promise<{ staffUid: string }> {
   const fs = fbFirestore();
   const sessionRef = fs.collection(COLLECTION).doc(sessionId);
-  const slotRef = sessionRef.collection("slots").doc(String(slot));
-  const studentRef = sessionRef.collection("students").doc(studentUid);
+  const claimRef = sessionRef.collection("claims").doc(`${slot}_${studentUid}`);
   return fs.runTransaction(async (tx) => {
     const sessionSnap = await tx.get(sessionRef);
     if (!sessionSnap.exists) throw new Error("session_not_found");
@@ -97,22 +99,14 @@ export async function claimSlot(sessionId: string, slot: number, studentUid: str
     const expiresMs = tsToMs(data.expiresAt);
     if (expiresMs && Date.now() > expiresMs) throw new Error("session_expired");
 
-    const slotSnap = await tx.get(slotRef);
-    if (slotSnap.exists) throw new Error("slot_used");
+    const claimSnap = await tx.get(claimRef);
+    if (claimSnap.exists) throw new Error("already_claimed_code");
 
-    const studentSnap = await tx.get(studentRef);
-    if (studentSnap.exists) throw new Error("student_already_awarded");
-
-    const now = new Date();
-    tx.set(slotRef, {
-      usedBy: studentUid,
-      usedAt: now,
-      scanId,
-    });
-    tx.set(studentRef, {
-      awardedAt: now,
+    tx.set(claimRef, {
+      studentUid,
       slot,
       scanId,
+      claimedAt: new Date(),
     });
     tx.update(sessionRef, { awardsCount: FieldValue.increment(1) });
 
