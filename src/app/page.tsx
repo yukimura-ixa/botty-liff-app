@@ -31,18 +31,19 @@ export default function LoginPage() {
 
         const liff = await initLiff();
 
-        // Detect if running outside LINE client
+        // Desktop browser (outside LINE): the LIFF UI is mobile-only — block it.
         if (liff.getOS() === 'web') {
           const isMobile = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
           if (!isMobile) {
             if (!cancelled) setPhase('desktop');
             return;
           }
-          // Mobile browser — redirect into LINE app
-          liff.login({ redirectUri: window.location.href });
-          return;
         }
 
+        // Kick off LINE login ONLY when not already authenticated. Calling
+        // liff.login() unconditionally in an external mobile browser caused a
+        // redirect loop: login → LINE → back here → login again. Once logged in
+        // (in-app or external browser) we fall through to the auth flow.
         if (!liff.isLoggedIn()) {
           liff.login({ redirectUri: window.location.href });
           return;
@@ -52,29 +53,30 @@ export default function LoginPage() {
 
         if (!cancelled) setPhase("authenticating");
 
-        // Try to authenticate with optional retry on expired LINE token
-        let retried = false;
-
+        // Try to authenticate, with a one-shot retry on an expired LINE token.
+        // The retry guard lives in sessionStorage (NOT the per-run cleared keys)
+        // so it survives the login redirect/reload — otherwise a persistently
+        // rejected token loops logout→login forever.
         async function tryAuth() {
           const idToken = await getLineIdToken();
           try {
             const result = await authLine(idToken);
+            // Success — clear the one-shot guard so a future expiry can retry.
+            sessionStorage.removeItem("lineAuthRetried");
             return result;
           } catch (authErr) {
-            // If auth failed due to expired LINE token and we haven't retried yet, retry once
             if (
-              !retried &&
               authErr instanceof ApiError &&
-              authErr.message.includes("invalid LINE token")
+              authErr.message.includes("invalid LINE token") &&
+              sessionStorage.getItem("lineAuthRetried") !== "1"
             ) {
-              retried = true;
-              // Clear app session state
+              sessionStorage.setItem("lineAuthRetried", "1");
+              // Clear app session state and force one fresh LIFF login.
               sessionStorage.removeItem("firebaseIdToken");
               sessionStorage.removeItem("role");
-              // Force fresh LIFF login
               await liff.logout();
               await liff.login({ redirectUri: window.location.href });
-              // Return and let the page reload trigger a new auth attempt
+              // Page reload triggers the next (final) auth attempt.
               return null;
             }
             throw authErr;
