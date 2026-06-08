@@ -38,6 +38,10 @@ export interface ScanAttemptLog {
   confidence?: number;
   clientConf?: number;
   dupReason?: "hash" | "phash";
+  // For rejected_not_pet: why it was rejected. "no_match" = no accepted class
+  // matched (detectedClass carries the model's top guess); "low_conf" = a PET
+  // bottle was found but below the accept threshold.
+  rejectReason?: "no_match" | "low_conf";
 }
 
 export interface StdoutEventCtx {
@@ -61,7 +65,7 @@ export async function logScanAttempt(input: ScanAttemptLog): Promise<void> {
   const optKeys: (keyof ScanAttemptLog)[] = [
     "basePoints", "streakBonus", "totalPoints",
     "itemCount", "detectedClass", "confidence", "clientConf",
-    "dupReason",
+    "dupReason", "rejectReason",
   ];
   for (const k of optKeys) {
     const v = input[k];

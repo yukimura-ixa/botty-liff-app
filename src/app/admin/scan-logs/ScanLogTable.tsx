@@ -195,6 +195,13 @@ export function ScanLogTable({ fixedUid, initialFrom, initialTo }: Props) {
                     <span className="slt-pill" style={{ background: OUTCOME_COLORS[r.outcome] }}>
                       {r.outcome}
                     </span>
+                    {r.outcome === 'rejected_not_pet' && r.rejectReason && (
+                      <span className="slt-reason" title={r.rejectReason === 'no_match'
+                        ? 'no prediction matched the accepted class — detected col shows the model’s top guess'
+                        : 'a PET bottle was found but below the accept threshold'}>
+                        {r.rejectReason === 'no_match' ? 'no match' : 'low conf'}
+                      </span>
+                    )}
                   </td>
                   <td>{r.detectedClass ?? <span className="slt-empty">—</span>}</td>
                   <td className="slt-num slt-mono">{r.confidence != null ? r.confidence.toFixed(2) : <span className="slt-empty">—</span>}</td>
@@ -434,6 +441,16 @@ const CSS = `
   font-weight: 600;
   letter-spacing: .2px;
   white-space: nowrap;
+}
+.slt-reason {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  color: ${t.muted};
+  cursor: help;
 }
 .slt-link { color: ${t.moss}; text-decoration: none; font-weight: 600; }
 .slt-link:hover { color: ${t.forest}; text-decoration: underline; }

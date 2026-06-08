@@ -156,8 +156,12 @@ export async function POST(req: NextRequest) {
         scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
         outcome: "rejected_not_pet",
         at: new Date(), localDate,
-        confidence: det.confidence, clientConf,
-        itemCount: det.itemCount, detectedClass: det.class,
+        // For no_match, det.confidence/class are empty — fall back to the model's
+        // top guess so a class-label config mismatch is visible in the logs.
+        confidence: det.confidence || det.observedConfidence,
+        clientConf,
+        itemCount: det.itemCount, detectedClass: det.class || det.observedClass,
+        rejectReason: det.rejectReason,
       });
       return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
         status: 422, headers: { "Content-Type": "application/json" },
@@ -278,7 +282,8 @@ export async function POST(req: NextRequest) {
   }
   const dup = await isDuplicateScan(ctx.uid, hash, phash);
   if (dup.dup) {
-    const dupReason: "hash" | "phash" = dup.reason === "sha256" ? "hash" : "phash";
+    const dupReason: "hash" | "phash" =
+      dup.reason === "sha256" || dup.reason === "pending_sha256" ? "hash" : "phash";
     await logScanAttempt({
       scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
       outcome: dupReason === "hash" ? "denied_dup_hash" : "denied_dup_phash",
