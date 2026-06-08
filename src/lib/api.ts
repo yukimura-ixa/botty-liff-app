@@ -538,6 +538,7 @@ export interface AdminScanLogRow {
   confidence?: number;
   clientConf?: number;
   dupReason?: "hash" | "phash";
+  rejectReason?: "no_match" | "low_conf";
 }
 
 export interface AdminScanLogResponse {

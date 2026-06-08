@@ -20,7 +20,7 @@ export async function writeScanAttempt(input: ScanAttemptLog): Promise<void> {
   const optKeys: (keyof ScanAttemptLog)[] = [
     "basePoints", "streakBonus", "totalPoints",
     "itemCount", "detectedClass", "confidence", "clientConf",
-    "dupReason",
+    "dupReason", "rejectReason",
   ];
   for (const k of optKeys) {
     const v = input[k];
@@ -124,6 +124,7 @@ function toRow(id: string, d: FirebaseFirestore.DocumentData): ScanLogRow {
     confidence: numOpt(d.confidence),
     clientConf: numOpt(d.clientConf),
     dupReason: d.dupReason === "hash" || d.dupReason === "phash" ? d.dupReason : undefined,
+    rejectReason: d.rejectReason === "no_match" || d.rejectReason === "low_conf" ? d.rejectReason : undefined,
   };
 }
 
