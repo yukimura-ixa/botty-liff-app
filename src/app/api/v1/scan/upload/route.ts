@@ -8,7 +8,7 @@ import { computeStreak } from "@/server/scan/streak";
 import { rankForPoints } from "@/server/scan/rank";
 import { calculatePoints, DEFAULT_POINTS_CONFIG } from "@/server/scan/points";
 import { imageHash, perceptualHash, phashBucket } from "@/server/scan/hash";
-import { detect, detectorConfigFromEnv } from "@/server/scan/detect";
+import { detect, detectorConfigFromEnv, type DetectResult } from "@/server/scan/detect";
 import { uploadScanImage } from "@/server/scan/storage";
 import { awardScan } from "@/server/scan/award";
 import { isDuplicateScan, getStoredScan, type StoredScan } from "@/server/scan/repo";
@@ -68,6 +68,32 @@ function replayResult(scanId: string, s: StoredScan, prof: { totalPoints?: numbe
     newRank: rank,
     awarded: true,
   };
+}
+
+// Log a rejected_not_pet attempt with diagnostics. For a no_match rejection
+// det.confidence/class are empty, so fall back to the model's top guess
+// (observedClass/observedConfidence) — that makes a class-label config mismatch
+// (model emits "pet-bottle" while ROBOFLOW_BOTTLE_CLASS expects "PET Bottle")
+// visible in the Scan Logs UI instead of looking like a genuine rejection.
+// Shared by the preview (non-student) and student paths so both stay diagnosable.
+async function logRejectedNotPet(args: {
+  scanId: string;
+  uid: string;
+  classKey: string;
+  localDate: string;
+  clientConf: number;
+  det: DetectResult;
+}): Promise<void> {
+  const { det } = args;
+  await logScanAttempt({
+    scanId: args.scanId, uid: args.uid, classKey: args.classKey,
+    outcome: "rejected_not_pet",
+    at: new Date(), localDate: args.localDate,
+    confidence: det.confidence || det.observedConfidence,
+    clientConf: args.clientConf,
+    itemCount: det.itemCount, detectedClass: det.class || det.observedClass,
+    rejectReason: det.rejectReason,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -152,17 +178,7 @@ export async function POST(req: NextRequest) {
       return jsonError(500, "detector error");
     }
     if (!det.accepted) {
-      await logScanAttempt({
-        scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
-        outcome: "rejected_not_pet",
-        at: new Date(), localDate,
-        // For no_match, det.confidence/class are empty — fall back to the model's
-        // top guess so a class-label config mismatch is visible in the logs.
-        confidence: det.confidence || det.observedConfidence,
-        clientConf,
-        itemCount: det.itemCount, detectedClass: det.class || det.observedClass,
-        rejectReason: det.rejectReason,
-      });
+      await logRejectedNotPet({ scanId, uid: ctx.uid, classKey: prof.classKey ?? "", localDate, clientConf, det });
       return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
         status: 422, headers: { "Content-Type": "application/json" },
       });
@@ -317,13 +333,7 @@ export async function POST(req: NextRequest) {
     return jsonError(500, "detector error");
   }
   if (!det.accepted) {
-    await logScanAttempt({
-      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
-      outcome: "rejected_not_pet",
-      at: new Date(), localDate,
-      confidence: det.confidence, clientConf,
-      itemCount: det.itemCount, detectedClass: det.class,
-    });
+    await logRejectedNotPet({ scanId, uid: ctx.uid, classKey: prof.classKey ?? "", localDate, clientConf, det });
     return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
       status: 422, headers: { "Content-Type": "application/json" },
     });
