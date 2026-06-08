@@ -7,7 +7,7 @@ import { scanQrCode } from "@/lib/liff";
 import { RankTree } from '@/components/botty/RankTree'
 import { ulid } from "ulidx";
 
-type State = "idle" | "scanning" | "uploading" | "result" | "error" | "notbottle" | "duplicate" | "cooldown" | "dailylimit" | "slow";
+type State = "idle" | "scanning" | "uploading" | "result" | "error" | "ineligible" | "notbottle" | "duplicate" | "cooldown" | "dailylimit" | "slow";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -119,6 +119,13 @@ export default function ScanPage() {
         }
         if (e.status === 409 || /duplicate/i.test(e.message)) {
           setState("duplicate");
+          return;
+        }
+        // Not eligible to earn scan points (staff/council account, or an account
+        // that hasn't finished onboarding / is inactive). Show a clear message
+        // rather than the generic crash screen.
+        if (e.status === 403) {
+          setState("ineligible");
           return;
         }
         setError(e.message);
@@ -553,6 +560,53 @@ export default function ScanPage() {
           สแกนขวดใหม่
         </button>
         <button onClick={() => router.replace("/home")} style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          กลับหน้าหลัก
+        </button>
+      </main>
+    );
+
+  if (state === "ineligible")
+    return (
+      <main
+        style={{
+          minHeight: "100dvh",
+          background: "#0A0F0C",
+          color: "white",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          padding: 24,
+        }}
+      >
+        <div style={{ fontSize: 48 }}>🔒</div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>บัญชีนี้สแกนสะสมแต้มไม่ได้</div>
+        <div
+          style={{
+            fontSize: 13,
+            opacity: 0.7,
+            textAlign: "center",
+            maxWidth: 280,
+            lineHeight: 1.6,
+          }}
+        >
+          การสแกนสะสมแต้มใช้ได้เฉพาะบัญชีนักเรียนที่ลงทะเบียนแล้วเท่านั้น
+          หากเป็นบัญชีเจ้าหน้าที่ กรุณาใช้เมนู “QR เจ้าหน้าที่”
+        </div>
+        <button
+          onClick={() => router.push("/home")}
+          style={{
+            background: t.moss,
+            color: "white",
+            border: "none",
+            padding: "12px 28px",
+            borderRadius: 12,
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
           กลับหน้าหลัก
         </button>
       </main>
