@@ -1,6 +1,7 @@
 import { fbFirestore } from "@/server/lib/firebase";
 import type { Timestamp } from "firebase-admin/firestore";
 import { hammingDistance, phashBucket } from "./hash";
+import { PENDING_COL, PENDING_STATUS_AWAITING } from "./pending";
 
 export type ScanHistoryEntry = {
   scanId: string;
@@ -22,7 +23,11 @@ const PHASH_THRESHOLD = 6;
 
 export type DuplicateResult =
   | { dup: false }
-  | { dup: true; reason: "sha256" | "phash_same_user" | "phash_global"; existingScanId?: string };
+  | {
+      dup: true;
+      reason: "sha256" | "phash_same_user" | "phash_global" | "pending_phash";
+      existingScanId?: string;
+    };
 
 export async function isDuplicateScan(
   uid: string,
@@ -30,6 +35,7 @@ export async function isDuplicateScan(
   phash?: string,
 ): Promise<DuplicateResult> {
   const fs = fbFirestore();
+  const now = new Date();
   const sha256Since = new Date(Date.now() - DEDUP_WINDOW_MS);
   const shaSnap = await fs.collection("scans")
     .where("uid", "==", uid)
@@ -40,6 +46,14 @@ export async function isDuplicateScan(
   if (!shaSnap.empty) {
     return { dup: true, reason: "sha256", existingScanId: shaSnap.docs[0]!.id };
   }
+
+  // NOTE: the exact-sha256 in-flight pending check lived here but was
+  // read-then-write (no atomic reservation), leaving a double-award race across
+  // the slow detect() window. It is now handled atomically by reserveImageHash()
+  // (scanReservations/{sha256}) in the upload route. pHash pendings stay here:
+  // they are fuzzy (hamming distance) and cannot be keyed to a deterministic
+  // doc id, so they remain a best-effort read.
+
   if (!phash) return { dup: false };
 
   const bucket = phashBucket(phash);
@@ -74,7 +88,32 @@ export async function isDuplicateScan(
       }
     }
   }
+
+  // pHash match against OTHER users' in-flight pendings (see note above).
+  // Bounded by the short pending TTL, so the candidate set stays tiny.
+  const pendingPhashSnap = await fs.collection(PENDING_COL)
+    .where("phashBucket", "==", bucket)
+    .where("status", "==", PENDING_STATUS_AWAITING)
+    .where("expiresAt", ">", now)
+    .limit(50)
+    .get();
+  for (const d of pendingPhashSnap.docs) {
+    if (d.get("uid") === uid) continue;
+    const other = d.get("phash");
+    if (typeof other === "string" && other.length === phash.length) {
+      if (hammingDistance(other, phash) <= PHASH_THRESHOLD) {
+        return { dup: true, reason: "pending_phash", existingScanId: scanIdOf(d) };
+      }
+    }
+  }
+
   return { dup: false };
+}
+
+// pendingScans docs store the client scanId; fall back to the doc id.
+function scanIdOf(d: FirebaseFirestore.QueryDocumentSnapshot): string {
+  const s = d.get("scanId");
+  return typeof s === "string" && s.length > 0 ? s : d.id;
 }
 
 export type StoredScan = {

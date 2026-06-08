@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { detect, classMatches, type DetectorConfig } from "./detect";
+import { detect, classMatches, classMatchesAny, type DetectorConfig } from "./detect";
 
 const cfg: DetectorConfig = {
   url: "https://serverless.roboflow.com/test/workflows/test",
   apiKey: "k",
-  bottleClass: "PET Bottle",
+  bottleClasses: ["PET Bottle"],
   acceptThreshold: 0.7,
 };
 
@@ -23,6 +23,14 @@ describe("classMatches", () => {
   });
 });
 
+describe("classMatchesAny", () => {
+  it("matches when any accepted label matches", () => {
+    expect(classMatchesAny("pet-bottle", ["PET Bottle", "pet-bottle"])).toBe(true);
+    expect(classMatchesAny("PET Bottle", ["pet-bottle", "PET Bottle"])).toBe(true);
+    expect(classMatchesAny("HDPE", ["PET Bottle", "pet-bottle"])).toBe(false);
+  });
+});
+
 describe("detect", () => {
   beforeEach(() => { vi.restoreAllMocks(); });
 
@@ -32,11 +40,32 @@ describe("detect", () => {
     expect(r).toEqual({ accepted: true, confidence: 0.85, class: "PET Bottle", itemCount: 1 });
   });
 
-  it("rejects below-threshold prediction", async () => {
+  it("rejects below-threshold prediction with low_conf reason", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse([{ class: "PET Bottle", confidence: 0.5 }])));
     const r = await detect(cfg, Buffer.from("fake-bytes"));
     expect(r.accepted).toBe(false);
     expect(r.confidence).toBe(0.5);
+    expect(r.rejectReason).toBe("low_conf");
+  });
+
+  it("matches any of multiple accepted class labels", async () => {
+    const multi: DetectorConfig = { ...cfg, bottleClasses: ["PET Bottle", "pet-bottle"] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse([{ class: "pet-bottle", confidence: 0.9 }])));
+    const r = await detect(multi, Buffer.from("fake-bytes"));
+    expect(r.accepted).toBe(true);
+    expect(r.class).toBe("pet-bottle");
+  });
+
+  it("reports no_match with the model's top guess when nothing matches the class", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse([
+      { class: "HDPE Plastic", confidence: 0.95 },
+      { class: "Glass", confidence: 0.6 },
+    ])));
+    const r = await detect(cfg, Buffer.from("fake-bytes"));
+    expect(r.accepted).toBe(false);
+    expect(r.rejectReason).toBe("no_match");
+    expect(r.observedClass).toBe("HDPE Plastic");
+    expect(r.observedConfidence).toBe(0.95);
   });
 
   it("picks the highest-confidence PET-Bottle when multiple present", async () => {
@@ -54,7 +83,10 @@ describe("detect", () => {
   it("returns rejected/zero on empty predictions", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse([])));
     const r = await detect(cfg, Buffer.from("fake-bytes"));
-    expect(r).toEqual({ accepted: false, confidence: 0, class: "", itemCount: 0 });
+    expect(r).toEqual({
+      accepted: false, confidence: 0, class: "", itemCount: 0,
+      rejectReason: "no_match", observedClass: undefined, observedConfidence: undefined,
+    });
   });
 
   it("throws on non-2xx response", async () => {

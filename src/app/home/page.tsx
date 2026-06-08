@@ -101,6 +101,9 @@ export default function HomePage() {
   }, []);
   const isAdmin = role === "admin";
   const isStaff = role === "council" || role === "admin";
+  // Only student/admin accounts can earn scan points (council are staff who run
+  // the approver QR). null = role not yet loaded — default to showing the tile.
+  const canScan = role !== "council";
 
   if (error) {
     return (
@@ -428,7 +431,9 @@ export default function HomePage() {
           }}
         >
           {[
-            { href: "/scan", emoji: "📸", label: "สแกนขวด", bg: t.moss },
+            ...(canScan
+              ? [{ href: "/scan", emoji: "📸", label: "สแกนขวด", bg: t.moss }]
+              : []),
             {
               href: "/leaderboard",
               emoji: "🏆",

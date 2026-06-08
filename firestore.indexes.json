@@ -10,6 +10,24 @@
       ]
     },
     {
+      "collectionGroup": "pendingScans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "imageHash", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pendingScans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "phashBucket", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
@@ -182,6 +200,16 @@
   "fieldOverrides": [
     {
       "collectionGroup": "scanAttempts",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }
+      ]
+    },
+    {
+      "collectionGroup": "scanReservations",
       "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": [
