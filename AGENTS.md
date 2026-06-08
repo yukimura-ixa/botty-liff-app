@@ -146,3 +146,19 @@ allowances (20K writes, 50K reads, 1 GiB) still apply, so 30-day retention costs
 Without this step the collection grows unbounded — and on Spark the 20K writes/day
 free cap is the binding wall (logging burns one write per scan attempt).
 
+### 3. Enable Firestore TTL on `scanReservations` (requires Blaze)
+
+The atomic scan-dedup reservation (botty-cnr) writes one
+`scanReservations/{sha256}` doc per distinct upload hash, each with a 5-min
+`expiresAt`. The TTL `fieldOverride` is in `firestore.indexes.json` (deploy via
+step 1's `firebase deploy --only firestore:indexes`), but the TTL **policy**
+must be enabled in the console:
+
+1. Firebase console → Firestore → TTL.
+2. Add a policy on collection `scanReservations`, field `expiresAt`.
+3. Status turns "Active" within ~24h.
+
+Without it the collection grows unbounded. The reservation is read by doc id
+only (no composite index needed). `expiresAt` is written by `reserveImageHash`
+(`src/server/scan/reservation.ts`).
+

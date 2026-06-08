@@ -19,6 +19,7 @@ import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-li
 import { logScanAttempt, logScanEvent } from "@/server/scan/log";
 import { coinReward } from "@/server/shop/earn";
 import { createPending, hasOutstandingPending } from "@/server/scan/pending";
+import { reserveImageHash, releaseImageHash } from "@/server/scan/reservation";
 import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
 import { cooldownMs, remainingBottles } from "@/server/scan/cooldown";
 
@@ -260,6 +261,12 @@ export async function POST(req: NextRequest) {
     return jsonOk(replayResult(scanId, prior, prof));
   }
 
+  // Cooldown / daily-cap are award-keyed by design (botty-j1r): in enforce mode
+  // dailyScans/dailyBottles/lastScanAt only advance when the staff-QR confirm
+  // awards the pending, so an unconfirmed upload does not count against them.
+  // This is bounded by hasOutstandingPending (one open pending per 5 min) and the
+  // atomic imageHash reservation below (blocks identical-bytes re-upload in-flight),
+  // so the residual window is one unconfirmed scan at a time — accepted, not a bug.
   const sameDay = prof.dailyScanDate === localDate;
   const scansToday = sameDay ? (prof.dailyScans ?? 0) : 0;
   const bottlesToday = sameDay ? (prof.dailyBottles ?? 0) : 0;
@@ -299,7 +306,7 @@ export async function POST(req: NextRequest) {
   const dup = await isDuplicateScan(ctx.uid, hash, phash);
   if (dup.dup) {
     const dupReason: "hash" | "phash" =
-      dup.reason === "sha256" || dup.reason === "pending_sha256" ? "hash" : "phash";
+      dup.reason === "sha256" ? "hash" : "phash";
     await logScanAttempt({
       scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
       outcome: dupReason === "hash" ? "denied_dup_hash" : "denied_dup_phash",
@@ -326,13 +333,32 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Atomic exact-image reservation: closes the cross-user double-award race that
+  // a read-then-write pending check left open across the slow detect() window.
+  // Taken before detect(); released below on any non-awarding exit.
+  const reservation = await reserveImageHash(ctx.uid, hash);
+  if (!reservation.reserved) {
+    await logScanAttempt({
+      scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
+      outcome: "denied_dup_hash",
+      at: new Date(), localDate,
+      dupReason: "hash",
+    });
+    return new Response(
+      JSON.stringify({ error: "duplicate scan", reason: "pending_sha256" }),
+      { status: 409, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   let det;
   try { det = await detect(detectorConfigFromEnv(), buf); }
   catch (err) {
+    await releaseImageHash(hash, ctx.uid);
     logScanEvent("error_detector", { uid: ctx.uid, scanId, err });
     return jsonError(500, "detector error");
   }
   if (!det.accepted) {
+    await releaseImageHash(hash, ctx.uid);
     await logRejectedNotPet({ scanId, uid: ctx.uid, classKey: prof.classKey ?? "", localDate, clientConf, det });
     return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
       status: 422, headers: { "Content-Type": "application/json" },
@@ -342,6 +368,7 @@ export async function POST(req: NextRequest) {
   let imageUrl: string;
   try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
   catch (err) {
+    await releaseImageHash(hash, ctx.uid);
     logScanEvent("error_storage", { uid: ctx.uid, scanId, err });
     return jsonError(500, "storage");
   }
@@ -425,7 +452,10 @@ export async function POST(req: NextRequest) {
       }));
     } catch (err) {
       console.error("pending create failed", ctx.uid, scanId, err);
-      if (cmode === "enforce") return jsonError(500, "pending create failed");
+      if (cmode === "enforce") {
+        await releaseImageHash(hash, ctx.uid);
+        return jsonError(500, "pending create failed");
+      }
       pendingId = undefined;
     }
     if (cmode === "enforce" && pendingId) {
