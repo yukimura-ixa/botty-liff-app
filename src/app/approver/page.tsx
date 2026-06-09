@@ -201,6 +201,8 @@ export default function ApproverPage() {
               ให้คะแนนแล้ว {stand.tok.awardsCount} ครั้ง
             </div>
             {qrDataUrl ? (
+              // base64 data URI — next/image cannot optimize data: sources
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={qrDataUrl}
                 alt="staff QR"

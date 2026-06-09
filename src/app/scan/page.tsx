@@ -289,6 +289,8 @@ export default function ScanPage() {
           </div>
         )}
         {result.annotatedImage && (
+          // base64 data URI — next/image cannot optimize data: sources
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`data:image/jpeg;base64,${result.annotatedImage}`}
             alt="ผลการตรวจจับ"
