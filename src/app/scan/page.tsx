@@ -7,7 +7,7 @@ import { scanQrCode } from "@/lib/liff";
 import { RankTree } from '@/components/botty/RankTree'
 import { ulid } from "ulidx";
 
-type State = "idle" | "scanning" | "uploading" | "result" | "error" | "ineligible" | "notbottle" | "duplicate" | "cooldown" | "dailylimit" | "slow";
+type State = "idle" | "scanning" | "uploading" | "result" | "error" | "ineligible" | "notbottle" | "duplicate" | "pending" | "cooldown" | "dailylimit" | "slow";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -116,6 +116,19 @@ export default function ScanPage() {
         if (e.status === 422 || /PET/i.test(e.message)) {
           setState("notbottle");
           return;
+        }
+        // Outstanding unconfirmed pending: not a duplicate. Route the student to
+        // confirm it at the staff QR instead of the misleading "already scanned".
+        if (e.code === "pending_exists") {
+          const pid = String(e.data?.pendingId ?? "");
+          const secs = Number(e.data?.expiresInSec) || 0;
+          if (pid && secs > 0) {
+            setApproverPrompt({ pendingId: pid, expiresAt: Date.now() + secs * 1000 });
+            setApproverStatus("idle");
+            setApproverCountdown(secs);
+            setState("pending");
+            return;
+          }
         }
         if (e.status === 409 || /duplicate/i.test(e.message)) {
           setState("duplicate");
@@ -559,6 +572,49 @@ export default function ScanPage() {
         <button onClick={() => setState("idle")} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
           สแกนขวดใหม่
         </button>
+        <button onClick={() => router.replace("/home")} style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          กลับหน้าหลัก
+        </button>
+      </main>
+    );
+
+  if (state === "pending")
+    return (
+      <main style={{ minHeight: "100dvh", background: "#0A0F0C", color: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        {approverStatus === "confirmed" ? (
+          <>
+            <div style={{ fontSize: 56 }}>✓</div>
+            <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>ยืนยันโดยเจ้าหน้าที่แล้ว</div>
+            <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+              รับคะแนนเรียบร้อย<br/>สแกนขวดใหม่ได้เลย
+            </div>
+            <button onClick={() => setState("idle")} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              สแกนขวดใหม่
+            </button>
+          </>
+        ) : approverStatus === "expired" ? (
+          <>
+            <div style={{ fontSize: 56 }}>⌛</div>
+            <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>หมดเวลายืนยัน</div>
+            <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+              สแกน QR เจ้าหน้าที่ไม่ทัน<br/>เริ่มสแกนใหม่อีกครั้ง
+            </div>
+            <button onClick={() => setState("idle")} style={{ background: t.moss, color: "white", border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              สแกนใหม่
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 56 }}>🎫</div>
+            <div style={{ fontSize: 17, fontWeight: 700, textAlign: "center" }}>มีการสแกนรอยืนยัน</div>
+            <div style={{ fontSize: 13, opacity: 0.7, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+              สแกน QR เจ้าหน้าที่เพื่อรับคะแนนของขวดก่อนหน้า<br/>ภายใน {approverCountdown} วินาที
+            </div>
+            <button onClick={handleScanApprover} disabled={approverStatus === "scanning"} style={{ background: "white", color: t.forest, border: "none", padding: "12px 28px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              {approverStatus === "scanning" ? "กำลังเปิดสแกนเนอร์..." : "📷 สแกน QR เจ้าหน้าที่"}
+            </button>
+          </>
+        )}
         <button onClick={() => router.replace("/home")} style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "none", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
           กลับหน้าหลัก
         </button>
