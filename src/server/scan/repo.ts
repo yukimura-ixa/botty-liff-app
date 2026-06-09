@@ -12,13 +12,14 @@ export type ScanHistoryEntry = {
   capturedAt: string;
 };
 
-// Exact SHA-256 dedup window (per-user, original behavior).
+// All dedup lookback windows are 24h (botty: unified window). A short window
+// keeps the "already scanned this" memory tight so legitimate re-use of a
+// recycling spot on a later day is not wrongly blocked, while still catching
+// same-day resubmits and passing-the-photo-around abuse.
 const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
-// pHash same-user window: 30 days.
-const PHASH_USER_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-// pHash global window: 7 days across all users (catches passing photos around).
-const PHASH_GLOBAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-// Hamming threshold for "same image" — typical for 64-bit aHash.
+const PHASH_USER_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PHASH_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Hamming threshold for "same image" — typical for a 64-bit dHash.
 const PHASH_THRESHOLD = 6;
 
 export type DuplicateResult =

@@ -155,10 +155,12 @@ export function uploadScan(image: File, scanId: string, clientConfidence?: numbe
 
 // Confirms a pending scan with a staff-QR slot token, awarding points + coins.
 export function confirmScan(pendingId: string, approverToken: string) {
+  // Cap at 20s (server maxDuration is 15s) so a flaky connection surfaces a
+  // timeout error instead of hanging the confirm screen forever.
   return request<{ ok: boolean; approverUid: string; sessionId: string }>('/scan/confirm', {
     method: 'POST',
     body: JSON.stringify({ pendingId, approverToken }),
-  })
+  }, { timeoutMs: 20_000 })
 }
 
 export type ApproverTokenInfo = {

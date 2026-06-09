@@ -162,3 +162,21 @@ Without it the collection grows unbounded. The reservation is read by doc id
 only (no composite index needed). `expiresAt` is written by `reserveImageHash`
 (`src/server/scan/reservation.ts`).
 
+### 4. Enable Firestore TTL on `pendingSlots` (requires Blaze)
+
+The "one outstanding pending per user" lock writes one `pendingSlots/{uid}` doc
+when a student stages a pending scan (enforce mode), each with a `PENDING_TTL_MS`
+`expiresAt`. It closes the same-user double-pending race that `hasOutstandingPending`
+(read-then-write) left open. The doc is normally deleted when the pending is
+confirmed (confirm route) or on a non-awarding upload exit, so TTL is just the
+backstop for abandoned pendings. The TTL `fieldOverride` is in
+`firestore.indexes.json` (deploy via step 1), but the TTL **policy** must be
+enabled in the console:
+
+1. Firebase console → Firestore → TTL.
+2. Add a policy on collection `pendingSlots`, field `expiresAt`.
+3. Status turns "Active" within ~24h.
+
+Read by doc id only (no composite index needed). `expiresAt` is written by
+`reservePendingSlot` (`src/server/scan/reservation.ts`).
+

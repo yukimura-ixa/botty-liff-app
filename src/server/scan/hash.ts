@@ -9,26 +9,39 @@ export function imageHash(data: Uint8Array | Buffer): string {
 // Alias to clarify call sites that explicitly want the SHA-256.
 export const sha256Hash = imageHash;
 
-// Perceptual hash (aHash 8x8): resize to 8x8 grayscale, set bit i if pixel ≥ mean.
-// Returns 16-char hex (64 bits). Tolerant to recompression, mild rotation/crop,
-// and brightness shifts. Defeats raw-byte dedup bypass via JPEG re-save.
+// Perceptual hash (dHash 9x8): resize to 9x8 grayscale, set bit if a pixel is
+// brighter than its right-hand neighbour. 8 comparisons per row × 8 rows = 64
+// bits, returned as 16-char hex. dHash encodes the *direction* of local
+// brightness gradients rather than each pixel vs the frame mean (aHash), so it
+// discriminates between similar-but-distinct scenes far better — two different
+// bottles photographed against the same desk no longer collapse to near-equal
+// hashes — while staying tolerant to recompression and brightness shifts.
+//
+// NOTE: dHash and the previous aHash are not comparable. Pre-existing aHash
+// values stored on `scans`/`pendingScans` docs will not match new dHash values,
+// so perceptual dedup effectively resets on deploy (fail-open: at worst a
+// previously-deduped image can be scanned once more). Exact SHA-256 dedup is
+// unaffected and still catches byte-identical re-uploads.
 export async function perceptualHash(buf: Buffer): Promise<string> {
   const pixels = await sharp(buf, { failOn: "none" })
     .removeAlpha()
     .grayscale()
-    .resize(8, 8, { fit: "fill", kernel: "lanczos3" })
+    .resize(9, 8, { fit: "fill", kernel: "lanczos3" })
     .raw()
     .toBuffer();
-  if (pixels.length < 64) {
+  if (pixels.length < 72) {
     throw new Error("phash: unexpected pixel buffer size");
   }
-  let sum = 0;
-  for (let i = 0; i < 64; i++) sum += pixels[i]!;
-  const mean = sum / 64;
   const bytes = Buffer.alloc(8);
-  for (let i = 0; i < 64; i++) {
-    if (pixels[i]! >= mean) {
-      bytes[i >> 3]! |= 1 << (7 - (i & 7));
+  let bit = 0;
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const left = pixels[row * 9 + col]!;
+      const right = pixels[row * 9 + col + 1]!;
+      if (left > right) {
+        bytes[bit >> 3]! |= 1 << (7 - (bit & 7));
+      }
+      bit++;
     }
   }
   return bytes.toString("hex");

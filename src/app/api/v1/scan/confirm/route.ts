@@ -13,6 +13,7 @@ import {
   ERR_PENDING_NOT_FOUND, ERR_PENDING_EXPIRED, ERR_PENDING_WRONG_USER, ERR_PENDING_ALREADY_CONFIRMED, PendingError,
 } from "@/server/scan/pending";
 import { bustLeaderboardCaches } from "@/server/lib/leaderboard-cache-bus";
+import { releasePendingSlot } from "@/server/scan/reservation";
 import type { PendingDoc } from "@/server/scan/build";
 
 export const runtime = "nodejs";
@@ -141,5 +142,8 @@ export async function POST(req: NextRequest) {
     }
     bustLeaderboardCaches();
   }
+  // Free the user's "one outstanding pending" slot now that this one is settled,
+  // so they can scan again without waiting for the slot's TTL to lapse.
+  await releasePendingSlot(ctx.uid);
   return jsonOk({ ok: true, approverUid: staffUid, sessionId: claims.sessionId });
 }
