@@ -19,7 +19,7 @@ import { ipScanLimiter, clientIp, rateLimitResponse } from "@/server/lib/rate-li
 import { logScanAttempt, logScanEvent } from "@/server/scan/log";
 import { coinReward } from "@/server/shop/earn";
 import { createPending, hasOutstandingPending } from "@/server/scan/pending";
-import { reserveImageHash, releaseImageHash } from "@/server/scan/reservation";
+import { reserveImageHash, releaseImageHash, reservePendingSlot, releasePendingSlot } from "@/server/scan/reservation";
 import { buildPendingDoc, PENDING_TTL_MS } from "@/server/scan/build";
 import { cooldownMs, remainingBottles } from "@/server/scan/cooldown";
 
@@ -323,6 +323,7 @@ export async function POST(req: NextRequest) {
   // Staff-QR confirm flow: one outstanding pending scan at a time. Blocks a second
   // upload while the student still owes a QR confirm for the previous one.
   const cmode = confirmMode();
+  let pendingSlotHeld = false;
   if (cmode !== "off") {
     const outstanding = await hasOutstandingPending(ctx.uid);
     if (outstanding) {
@@ -333,11 +334,32 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Atomic "one outstanding pending per user" lock (enforce only). hasOutstandingPending
+  // above is read-then-write, so two concurrent same-user uploads can both pass it and
+  // each stage a pending that confirm later double-awards. This per-uid transactional
+  // slot closes that window; released on award (confirm route) or any non-award exit below.
+  if (cmode === "enforce") {
+    const slot = await reservePendingSlot(ctx.uid);
+    if (!slot.reserved) {
+      // A concurrent upload just claimed this user's slot. Surface the now-live
+      // pending (if visible) so the client routes to the confirm screen.
+      const racing = await hasOutstandingPending(ctx.uid);
+      const payload = racing
+        ? { error: "pending_exists", pendingId: racing.id, expiresInSec: Math.max(0, Math.ceil((racing.expiresAt.getTime() - Date.now()) / 1000)) }
+        : { error: "pending_exists" };
+      return new Response(JSON.stringify(payload), {
+        status: 409, headers: { "Content-Type": "application/json" },
+      });
+    }
+    pendingSlotHeld = true;
+  }
+
   // Atomic exact-image reservation: closes the cross-user double-award race that
   // a read-then-write pending check left open across the slow detect() window.
   // Taken before detect(); released below on any non-awarding exit.
   const reservation = await reserveImageHash(ctx.uid, hash);
   if (!reservation.reserved) {
+    if (pendingSlotHeld) await releasePendingSlot(ctx.uid);
     await logScanAttempt({
       scanId, uid: ctx.uid, classKey: prof.classKey ?? "",
       outcome: "denied_dup_hash",
@@ -354,11 +376,13 @@ export async function POST(req: NextRequest) {
   try { det = await detect(detectorConfigFromEnv(), buf); }
   catch (err) {
     await releaseImageHash(hash, ctx.uid);
+    if (pendingSlotHeld) await releasePendingSlot(ctx.uid);
     logScanEvent("error_detector", { uid: ctx.uid, scanId, err });
     return jsonError(500, "detector error");
   }
   if (!det.accepted) {
     await releaseImageHash(hash, ctx.uid);
+    if (pendingSlotHeld) await releasePendingSlot(ctx.uid);
     await logRejectedNotPet({ scanId, uid: ctx.uid, classKey: prof.classKey ?? "", localDate, clientConf, det });
     return new Response(JSON.stringify({ error: "not a PET bottle", confidence: det.confidence }), {
       status: 422, headers: { "Content-Type": "application/json" },
@@ -369,6 +393,7 @@ export async function POST(req: NextRequest) {
   try { imageUrl = await uploadScanImage(ctx.uid, scanId, buf); }
   catch (err) {
     await releaseImageHash(hash, ctx.uid);
+    if (pendingSlotHeld) await releasePendingSlot(ctx.uid);
     logScanEvent("error_storage", { uid: ctx.uid, scanId, err });
     return jsonError(500, "storage");
   }
@@ -454,6 +479,7 @@ export async function POST(req: NextRequest) {
       console.error("pending create failed", ctx.uid, scanId, err);
       if (cmode === "enforce") {
         await releaseImageHash(hash, ctx.uid);
+        if (pendingSlotHeld) await releasePendingSlot(ctx.uid);
         return jsonError(500, "pending create failed");
       }
       pendingId = undefined;

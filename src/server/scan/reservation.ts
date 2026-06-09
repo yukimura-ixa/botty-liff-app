@@ -78,3 +78,49 @@ export async function releaseImageHash(sha256: string, uid: string): Promise<voi
     console.error("reservation release failed", uid, err);
   }
 }
+
+export const PENDING_SLOT_COL = "pendingSlots";
+
+/**
+ * Atomically claim the single "one outstanding pending per user" slot for `uid`.
+ *
+ * `hasOutstandingPending` is a read-then-write query, so two concurrent uploads
+ * from the *same* user can both pass it (before either has written its pending)
+ * and each create a pending — which the staff-QR confirm then awards twice. The
+ * exact-image `reserveImageHash` does not close this: it is keyed per-image and
+ * is idempotent for the same uid, so a second upload of a *different* photo (or
+ * an idempotent retry) sails through. This per-uid lock, keyed on a deterministic
+ * doc id (= uid), is the one document both racers transact on, so exactly one
+ * wins.
+ *
+ * Lives for PENDING_TTL_MS (the pending window) and is purged by a Firestore TTL
+ * policy on `expiresAt`; it is also released explicitly when the pending is
+ * awarded (confirm route) or on any non-awarding upload exit.
+ */
+export async function reservePendingSlot(
+  uid: string,
+  now: Date = new Date(),
+): Promise<{ reserved: boolean }> {
+  const ref = fbFirestore().collection(PENDING_SLOT_COL).doc(uid);
+  return fbFirestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists && readExpiresAt(snap.data()!).getTime() > now.getTime()) {
+      return { reserved: false };
+    }
+    tx.set(ref, { uid, expiresAt: new Date(now.getTime() + PENDING_TTL_MS), createdAt: now });
+    return { reserved: true };
+  });
+}
+
+/**
+ * Best-effort release of a user's pending slot. Called when the pending is
+ * awarded (so the student can scan again immediately) and on non-awarding upload
+ * exits. Swallows errors; the TTL is the backstop.
+ */
+export async function releasePendingSlot(uid: string): Promise<void> {
+  try {
+    await fbFirestore().collection(PENDING_SLOT_COL).doc(uid).delete();
+  } catch (err) {
+    console.error("pending slot release failed", uid, err);
+  }
+}
