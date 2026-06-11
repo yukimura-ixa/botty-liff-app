@@ -175,7 +175,7 @@ export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Arra
 
 export function detectorConfigFromEnv(): DetectorConfig {
   const host = (process.env.ROBOFLOW_HOST ?? "https://serverless.roboflow.com").replace(/\/+$/, "");
-  const model = (process.env.ROBOFLOW_MODEL ?? "napat-pbd-gmail-com/workflows/botty-infer").replace(/^\/+|\/+$/g, "");
+  const model = (process.env.ROBOFLOW_MODEL ?? "napat-pbd-gmail-com/workflows/botty").replace(/^\/+|\/+$/g, "");
   const apiKey = process.env.ROBOFLOW_API_KEY;
   if (!apiKey) throw new Error("ROBOFLOW_API_KEY missing");
   const rawClasses = process.env.ROBOFLOW_BOTTLE_CLASS ?? "PET Bottle";
