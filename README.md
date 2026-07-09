@@ -2,6 +2,26 @@
 
 A school recycling rewards system running as a [LINE LIFF](https://developers.line.biz/en/docs/liff/) webview. Students scan plastic bottles with their phone camera, an AI model verifies the bottle, and points/coins are awarded — either instantly or after a staff confirmation step, depending on configuration. Points feed a leaderboard, and coins can be spent in an in-app shop to decorate a personal garden.
 
+## Screenshots
+
+*Rendered from the design canvas, 390×844.*
+
+### Student flow
+
+| Login | Home | Camera scan |
+|---|---|---|
+| ![Login](docs/screenshots/login.png) | ![Home](docs/screenshots/home.png) | ![Scan](docs/screenshots/scan.png) |
+
+| Onboarding | Reward | Leaderboard |
+|---|---|---|
+| ![Onboarding](docs/screenshots/onboard.png) | ![Reward](docs/screenshots/reward.png) | ![Leaderboard](docs/screenshots/leaderboard.png) |
+
+### Teacher flow
+
+| Dashboard / student list | Student profile |
+|---|---|
+| ![Teacher dashboard](docs/screenshots/teacher-dash.png) | ![Student profile](docs/screenshots/teacher-profile.png) |
+
 ## How it works
 
 1. **Login** — the app bootstraps inside the LINE app: the LIFF SDK provides a LINE `idToken`, which the backend exchanges for a Firebase custom token. New users go through `/onboard`; returning users land on `/home`.
