@@ -4,17 +4,17 @@ A school recycling rewards system running as a [LINE LIFF](https://developers.li
 
 ## Screenshots
 
-*Rendered from the design canvas, 390×844.*
+*Captured from the running app, 390×844.*
 
 ### Student flow
 
-| Login | Home | Camera scan |
+| Onboarding | Home | Camera scan |
 |---|---|---|
-| ![Login](docs/screenshots/login.png) | ![Home](docs/screenshots/home.png) | ![Scan](docs/screenshots/scan.png) |
+| ![Onboarding](docs/screenshots/onboard.png) | ![Home](docs/screenshots/home.png) | ![Scan](docs/screenshots/scan.png) |
 
-| Onboarding | Reward | Leaderboard |
+| Leaderboard | Shop | Profile |
 |---|---|---|
-| ![Onboarding](docs/screenshots/onboard.png) | ![Reward](docs/screenshots/reward.png) | ![Leaderboard](docs/screenshots/leaderboard.png) |
+| ![Leaderboard](docs/screenshots/leaderboard.png) | ![Shop](docs/screenshots/shop.png) | ![Profile](docs/screenshots/profile.png) |
 
 ### Teacher flow
 
