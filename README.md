@@ -34,6 +34,24 @@ A school recycling rewards system running as a [LINE LIFF](https://developers.li
 
 Abuse guards on the scan flow: duplicate-image hash detection, 60s cooldown, daily limit of 20 scans, and IP rate limiting.
 
+## Gamification
+
+The scan loop feeds a progression layer that keeps students coming back.
+
+**Points & ranks** — every confirmed bottle earns points (a base value plus size and streak bonuses). Cumulative points move a student through four rank tiers:
+
+| Rank | Points |
+|---|---|
+| 🌱 ต้นกล้า (Seedling) | 0 – 1,000 |
+| 🌿 ต้นไม้ (Sapling) | 1,000 – 1,600 |
+| 🌳 ป่าไม้ (Forest) | 1,600 – 2,500 |
+| 🌲 ผืนป่า (Old-growth) | 2,500+ |
+
+- **Streaks** — scanning on consecutive days builds a 🔥 day-streak that adds bonus points to each award.
+- **Coins & shop** — scans also earn 🪙 coins. The shop (`/shop`) sells tree skins (oak, pine, sakura, willow, aurora) and garden decorations (rocks, flower beds, bushes, benches, ponds, statues), plus terrain.
+- **Garden** — students pick a headline tree and drag decorations to arrange a personal garden (`/garden`).
+- **Leaderboards** — ranked boards scoped by class, grade, and whole school, across weekly / monthly / all-time windows.
+
 ## Stack
 
 - **Next.js 16** (App Router, React 19, Turbopack)
