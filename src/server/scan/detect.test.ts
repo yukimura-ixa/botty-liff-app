@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { detect, classMatches, classMatchesAny, type DetectorConfig } from "./detect";
+import { detect, classMatches, classMatchesAny, parseSpoofScore, type DetectorConfig } from "./detect";
 
 const cfg: DetectorConfig = {
   url: "https://serverless.roboflow.com/test/workflows/test",
@@ -154,5 +154,68 @@ describe("detect", () => {
     )));
     const r = await detect(cfg, Buffer.from("fake-bytes"));
     expect(r.itemCount).toBe(5);
+  });
+
+  it("flows spoofScore from the workflow spoof output", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({
+        outputs: [{
+          predictions: { predictions: [{ class: "PET Bottle", confidence: 0.85 }] },
+          spoof: { predictions: [{ class: "flat2d", confidence: 0.93 }, { class: "real", confidence: 0.07 }] },
+        }],
+      }),
+    }));
+    const r = await detect(cfg, Buffer.from("fake-bytes"));
+    expect(r.spoofScore).toBe(0.93);
+  });
+
+  it("leaves spoofScore undefined when the workflow emits no spoof output (fail-open)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse([{ class: "PET Bottle", confidence: 0.85 }])));
+    const r = await detect(cfg, Buffer.from("fake-bytes"));
+    expect(r.spoofScore).toBeUndefined();
+  });
+});
+
+describe("parseSpoofScore", () => {
+  it("reads flat2d from a per-class list", () => {
+    expect(parseSpoofScore({ predictions: [
+      { class: "real", confidence: 0.1 },
+      { class: "flat2d", confidence: 0.9 },
+    ] })).toBe(0.9);
+  });
+
+  it("matches flat2d case-insensitively", () => {
+    expect(parseSpoofScore({ predictions: [{ class: "FLAT2D", confidence: 0.8 }] })).toBe(0.8);
+  });
+
+  it("reads flat2d from a per-class map", () => {
+    expect(parseSpoofScore({ predictions: { real: { confidence: 0.2 }, flat2d: { confidence: 0.77 } } })).toBe(0.77);
+  });
+
+  it("uses top + confidence when top is flat2d", () => {
+    expect(parseSpoofScore({ top: "flat2d", confidence: 0.6 })).toBe(0.6);
+  });
+
+  it("inverts top + confidence when top is the real class", () => {
+    expect(parseSpoofScore({ top: "real", confidence: 0.95 })).toBeCloseTo(0.05);
+  });
+
+  it("clamps out-of-range confidences into 0..1", () => {
+    expect(parseSpoofScore({ predictions: [{ class: "flat2d", confidence: 1.4 }] })).toBe(1);
+    expect(parseSpoofScore({ predictions: [{ class: "flat2d", confidence: -0.3 }] })).toBe(0);
+  });
+
+  it("returns undefined when absent (fail-open)", () => {
+    expect(parseSpoofScore(undefined)).toBeUndefined();
+    expect(parseSpoofScore({})).toBeUndefined();
+  });
+
+  it("returns undefined on malformed shapes (fail-open)", () => {
+    expect(parseSpoofScore({ predictions: [] })).toBeUndefined();
+    expect(parseSpoofScore({ predictions: [{ class: "real", confidence: 0.9 }] })).toBeUndefined();
+    expect(parseSpoofScore({ predictions: [{ class: "flat2d", confidence: NaN }] })).toBeUndefined();
+    expect(parseSpoofScore({ predictions: [{ class: "flat2d", confidence: "0.9" as unknown as number }] })).toBeUndefined();
+    expect(parseSpoofScore({ top: "flat2d" })).toBeUndefined();
   });
 });

@@ -24,6 +24,11 @@ export type DetectResult = {
   rejectReason?: RejectReason;
   observedClass?: string;
   observedConfidence?: number;
+  // Probability (0..1) the image is a 2D reproduction (screen recapture, printed
+  // photo, photo-of-photo) rather than a real bottle, from the workflow's "spoof"
+  // classification output. undefined when the workflow has no spoof block or the
+  // output is malformed — fail-open, never gates a scan. See log + audit.
+  spoofScore?: number;
 };
 
 type WorkflowPrediction = { class: string; confidence: number };
@@ -31,6 +36,16 @@ type WorkflowOutput = {
   predictions?: { predictions?: WorkflowPrediction[] };
   output_image?: { value?: string; type?: string };
   count_objects?: { output?: number };
+  // Classification block output, named "spoof" in the Roboflow Workflow. Shape is
+  // kept loose because the model/workflow is provisioned out-of-band; parseSpoofScore
+  // reads it defensively and fails open. Supports a per-class list, a per-class map,
+  // or a top-class + confidence pair.
+  spoof?: SpoofPredictions;
+};
+type SpoofPredictions = {
+  predictions?: WorkflowPrediction[] | Record<string, { confidence?: number }>;
+  top?: string;
+  confidence?: number;
 };
 type WorkflowResponse = {
   outputs?: WorkflowOutput[];
@@ -49,6 +64,45 @@ export function classMatchesAny(predicted: string, wants: string[]): boolean {
 function stripDataUriPrefix(s: string): string {
   const i = s.indexOf("base64,");
   return i >= 0 && s.startsWith("data:") ? s.slice(i + "base64,".length) : s;
+}
+
+
+// Negative class label emitted by the spoof classifier for a 2D reproduction.
+const SPOOF_CLASS = "flat2d";
+
+function asProb(n: unknown): number | undefined {
+  return typeof n === "number" && Number.isFinite(n)
+    ? Math.min(1, Math.max(0, n))
+    : undefined;
+}
+
+// Probability (0..1) the image is a 2D reproduction, read from the workflow's
+// "spoof" classification output. Defensive + fail-open: any absent or malformed
+// shape yields undefined so a workflow without the spoof block never blocks or
+// errors a scan. Recognizes three output shapes:
+//   - per-class list:  [{ class: "flat2d", confidence }, { class: "real", ... }]
+//   - per-class map:   { flat2d: { confidence }, real: { confidence } }
+//   - top + confidence: { top: "flat2d", confidence }  (binary invert if top=real)
+export function parseSpoofScore(spoof: SpoofPredictions | undefined): number | undefined {
+  if (!spoof || typeof spoof !== "object") return undefined;
+  const preds = spoof.predictions;
+  if (Array.isArray(preds)) {
+    const hit = preds.find((p) => p && classMatches(p.class ?? "", SPOOF_CLASS));
+    const v = asProb(hit?.confidence);
+    if (v !== undefined) return v;
+  } else if (preds && typeof preds === "object") {
+    for (const [k, val] of Object.entries(preds)) {
+      if (classMatches(k, SPOOF_CLASS)) {
+        const v = asProb((val as { confidence?: number })?.confidence);
+        if (v !== undefined) return v;
+      }
+    }
+  }
+  if (typeof spoof.top === "string") {
+    const c = asProb(spoof.confidence);
+    if (c !== undefined) return classMatches(spoof.top, SPOOF_CLASS) ? c : asProb(1 - c);
+  }
+  return undefined;
 }
 
 export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Array): Promise<DetectResult> {
@@ -90,6 +144,8 @@ export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Arra
   const cntFromBlock = first?.count_objects?.output;
   const itemCount = typeof cntFromBlock === "number" ? cntFromBlock : count;
 
+  const spoofScore = parseSpoofScore(first?.spoof);
+
   // No accepted class matched: surface the model's top guess so a label/config
   // mismatch (model emits "pet-bottle", we expect "PET Bottle") is diagnosable.
   if (!best) {
@@ -102,6 +158,7 @@ export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Arra
       rejectReason: "no_match",
       observedClass: bestAny?.cls,
       observedConfidence: bestAny?.conf,
+      spoofScore,
     };
   }
   const accepted = best.conf >= cfg.acceptThreshold;
@@ -111,13 +168,14 @@ export async function detect(cfg: DetectorConfig, imageBytes: Buffer | Uint8Arra
     class: best.cls,
     itemCount,
     annotatedImage,
+    spoofScore,
     ...(accepted ? {} : { rejectReason: "low_conf" as const }),
   };
 }
 
 export function detectorConfigFromEnv(): DetectorConfig {
   const host = (process.env.ROBOFLOW_HOST ?? "https://serverless.roboflow.com").replace(/\/+$/, "");
-  const model = (process.env.ROBOFLOW_MODEL ?? "napat-pbd-gmail-com/workflows/botty-infer").replace(/^\/+|\/+$/g, "");
+  const model = (process.env.ROBOFLOW_MODEL ?? "napat-pbd-gmail-com/workflows/botty").replace(/^\/+|\/+$/g, "");
   const apiKey = process.env.ROBOFLOW_API_KEY;
   if (!apiKey) throw new Error("ROBOFLOW_API_KEY missing");
   const rawClasses = process.env.ROBOFLOW_BOTTLE_CLASS ?? "PET Bottle";

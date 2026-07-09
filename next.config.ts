@@ -26,7 +26,24 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
+    // camera=(self) for the bottle scanner; everything else denied. The
+    // Privacy Sandbox / ad features are explicitly disabled (=()) so Chrome
+    // stops logging "Origin trial controlled feature not enabled" when
+    // embedded Google/Firebase scripts probe them. (The remaining
+    // "Unrecognized feature" console lines come from third-party sub-frames'
+    // own headers — Firebase auth, accounts.google.com, LINE — not this one.)
+    value: [
+      "camera=(self)",
+      "microphone=()",
+      "geolocation=()",
+      "payment=()",
+      "usb=()",
+      "browsing-topics=()",
+      "interest-cohort=()",
+      "join-ad-interest-group=()",
+      "run-ad-auction=()",
+      "attribution-reporting=()",
+    ].join(", "),
   },
   { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
 ];
