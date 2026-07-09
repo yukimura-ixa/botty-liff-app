@@ -20,7 +20,7 @@ export async function writeScanAttempt(input: ScanAttemptLog): Promise<void> {
   const optKeys: (keyof ScanAttemptLog)[] = [
     "basePoints", "streakBonus", "totalPoints",
     "itemCount", "detectedClass", "confidence", "clientConf",
-    "dupReason", "rejectReason",
+    "dupReason", "rejectReason", "spoofScore",
   ];
   for (const k of optKeys) {
     const v = input[k];

@@ -42,6 +42,11 @@ export interface ScanAttemptLog {
   // matched (detectedClass carries the model's top guess); "low_conf" = a PET
   // bottle was found but below the accept threshold.
   rejectReason?: "no_match" | "low_conf";
+  // Probability (0..1) the scan image is a 2D reproduction (screen/print/photo-of-
+  // photo) rather than a real bottle, from the spoof classifier. Soft-launch:
+  // logged for audit only, never gates the scan. undefined when the workflow emits
+  // no spoof output. See src/server/scan/detect.ts parseSpoofScore.
+  spoofScore?: number;
 }
 
 export interface StdoutEventCtx {

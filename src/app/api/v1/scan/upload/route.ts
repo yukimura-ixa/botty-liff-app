@@ -225,6 +225,7 @@ export async function POST(req: NextRequest) {
       at: capturedAt, localDate,
       itemCount: det.itemCount, detectedClass: det.class,
       confidence: det.confidence, clientConf,
+      spoofScore: det.spoofScore,
     });
     return jsonOk({
       scanId,
@@ -458,6 +459,7 @@ export async function POST(req: NextRequest) {
       basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
       itemCount: det.itemCount, detectedClass: det.class,
       confidence: det.confidence, clientConf,
+      spoofScore: det.spoofScore,
     });
   }
 
@@ -492,6 +494,7 @@ export async function POST(req: NextRequest) {
         basePoints: pt.basePoints, streakBonus: pt.streakBonus, totalPoints: pt.total,
         itemCount: det.itemCount, detectedClass: det.class,
         confidence: det.confidence, clientConf,
+        spoofScore: det.spoofScore,
       });
     }
   }

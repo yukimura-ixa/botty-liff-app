@@ -180,3 +180,12 @@ enabled in the console:
 Read by doc id only (no composite index needed). `expiresAt` is written by
 `reservePendingSlot` (`src/server/scan/reservation.ts`).
 
+## CI: Ignored Build Step
+
+`scripts/vercel-ignore-build.sh` is wired into Vercel (Project Settings → Git →
+Ignored Build Step). It skips a build when the tip commit touches **only**
+`.beads/` or `*.md` — beads bookkeeping and docs don't change runtime, so they
+no longer burn a full prod rebuild. Mixed commits and merge commits build, to
+stay safe. The script must exist on the branch being deployed; branches without
+it (the command errors) build as normal.
+
