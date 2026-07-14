@@ -233,12 +233,6 @@ export async function deleteUser(targetUid: string, actorUid: string): Promise<D
   return { ok: true, authDeleted, editId };
 }
 
-export async function createPending(lineUserId: string): Promise<Profile> {
-  const p = defaultPendingProfile(lineUserId, new Date());
-  await fbFirestore().collection(COL).doc(p.uid).set(p);
-  return p;
-}
-
 export type OnboardInput = {
   fullName: string;
   studentId: string;
@@ -247,17 +241,34 @@ export type OnboardInput = {
   consent: boolean;
 };
 
+// Onboarding is where the user doc is first written (login no longer creates a
+// pending doc). Runs in a transaction: if the doc somehow already exists (re-
+// submit, or an admin-seeded account), only the onboarding fields are updated so
+// points/coins/role are preserved; otherwise a full profile is created from the
+// defaults with the onboarding fields applied.
 export async function onboard(uid: string, input: OnboardInput): Promise<void> {
-  await fbFirestore().collection(COL).doc(uid).update({
+  const fs = fbFirestore();
+  const ref = fs.collection(COL).doc(uid);
+  const onboardFields = {
     fullName: input.fullName,
     studentId: input.studentId,
     classGrade: input.grade,
     classRoom: input.room,
     classKey: classKey(input.grade, input.room),
     consent: input.consent,
-    status: "active",
+    status: "active" as const,
     rank: "ต้นกล้า",
     updatedAt: new Date(),
+  };
+  await fs.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      tx.update(ref, onboardFields);
+    } else {
+      const lineUserId = uid.startsWith("line:") ? uid.slice("line:".length) : uid;
+      const base = defaultPendingProfile(lineUserId, new Date());
+      tx.set(ref, { ...base, ...onboardFields });
+    }
   });
   bust(`user:${uid}`);
 }
